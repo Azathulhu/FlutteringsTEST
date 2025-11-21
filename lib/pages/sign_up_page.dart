@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
 import 'sign_in_page.dart';
+import '../widgets/auth_text_field.dart';
 
 class SignUpPage extends StatefulWidget {
   @override
@@ -45,9 +46,25 @@ class _SignUpPageState extends State<SignUpPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text("Sign Up", style: TextStyle(fontSize: 32)),
-            TextField(controller: username, decoration: InputDecoration(labelText: "Username")),
-            TextField(controller: email, decoration: InputDecoration(labelText: "Email")),
-            TextField(controller: password, decoration: InputDecoration(labelText: "Password"), obscureText: true),
+            //TextField(controller: username, decoration: InputDecoration(labelText: "Username")),
+            //TextField(controller: email, decoration: InputDecoration(labelText: "Email")),
+            //TextField(controller: password, decoration: InputDecoration(labelText: "Password"), obscureText: true),
+            AuthTextField(
+              controller: username,
+              label: "Username",
+            ),
+
+            AuthTextField(
+              controller: email,
+              label: "Email",
+              keyboardType: TextInputType.emailAddress,
+            ),
+
+            AuthTextField(
+              controller: password,
+              label: "Password",
+              obscure: true,
+            ),
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: loading ? null : signUp,
