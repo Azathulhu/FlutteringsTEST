@@ -1,74 +1,26 @@
-import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'pages/sign_in_page.dart';
 
-class ITGame extends FlameGame {
-  @override
-  Future<void> onLoad() async {
-    await super.onLoad();
-  }
-}
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-void main() {
-  final game = ITGame();
-
-  runApp(
-    MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: MainMenu(game: game),
-    ),
+  await Supabase.initialize(
+    url: "https://nisssojyxkmiletzqjim.supabase.co",
+    anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pc3Nzb2p5eGttaWxldHpxamltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM2Nzk1NDEsImV4cCI6MjA3OTI1NTU0MX0.pX0qwuNXvSFXeIt9H_zemGJRbJpnKQFVkIeKZ2c2sxk",
   );
+
+  runApp(const MyApp());
 }
-//sample palang na menu ng game. NOT FINAL
-class MainMenu extends StatelessWidget {
-  final ITGame game;
-  const MainMenu({super.key, required this.game});
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'FLUTTERINGS!',
-              style: TextStyle(color: Colors.white, fontSize: 40),
-            ),
-            const SizedBox(height: 40),
-
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => GameWidget(game: game),
-                  ),
-                );
-              },
-              child: const Text('Start Game'),
-            ),
-
-            const SizedBox(height: 20),
-
-            ElevatedButton(
-              onPressed: () {},
-              child: const Text('Options'),
-            ),
-
-            ElevatedButton(
-              onPressed: () {},
-              child: const Text('Options'),
-            ),
-
-            const SizedBox(height: 20),
-
-            ElevatedButton(
-              onPressed: () {},
-              child: const Text('Exit'),
-            ),
-          ],
-        ),
-      ),
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: SignInPage(),
     );
   }
 }
