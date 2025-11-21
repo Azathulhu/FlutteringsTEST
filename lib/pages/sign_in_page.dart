@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
 import 'sign_up_page.dart';
 import 'home_page.dart';
+import '../widgets/auth_text_field.dart';
 
 class SignInPage extends StatefulWidget {
   @override
@@ -40,8 +41,19 @@ class _SignInPageState extends State<SignInPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text("Sign In", style: TextStyle(fontSize: 32)),
-            TextField(controller: email, decoration: InputDecoration(labelText: "Email")),
-            TextField(controller: password, decoration: InputDecoration(labelText: "Password"), obscureText: true),
+            //TextField(controller: email, decoration: InputDecoration(labelText: "Email")),
+            //TextField(controller: password, decoration: InputDecoration(labelText: "Password"), obscureText: true),
+            AuthTextField(
+              controller: email,
+              label: "Email",
+              keyboardType: TextInputType.emailAddress,
+            ),
+
+            AuthTextField(
+              controller: password,
+              label: "Password",
+              obscure: true,
+            ),
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: loading ? null : signIn,
