@@ -30,4 +30,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
+  assets:
+    - assets/character sprites/fluttering1.png
+    - assets/character sprites/fluttering2.png
