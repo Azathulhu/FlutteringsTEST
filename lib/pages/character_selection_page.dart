@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'home_page.dart';
 
 class CharacterSelectionPage extends StatefulWidget {
   @override
@@ -11,7 +10,7 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
   int currentPage = 0;
 
   final List<String> characters = [
-    "Default", // unlocked by default
+    "Default", 
     "Character 2",
     "Character 3",
     "Character 4",
@@ -22,6 +21,14 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
     false,
     false,
     false,
+  ];
+
+  // Placeholder sprite for each character (replace with actual sprites later)
+  final List<String> characterSprites = [
+    'assets/character sprites/fluttering1.png',
+    'assets/character sprites/fluttering2.png',
+    'assets/character sprites/fluttering3.png',
+    'assets/character sprites/fluttering4.png',
   ];
 
   @override
@@ -38,14 +45,13 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
               itemCount: characters.length,
               onPageChanged: (index) => setState(() => currentPage = index),
               itemBuilder: (context, index) {
-                // 3D rotation effect
                 double scale = index == currentPage ? 1.0 : 0.7;
                 double angle = (index - currentPage) * 0.3;
 
                 return Transform(
                   alignment: Alignment.center,
                   transform: Matrix4.identity()
-                    ..setEntry(3, 2, 0.001) // perspective
+                    ..setEntry(3, 2, 0.001)
                     ..rotateY(angle),
                   child: Opacity(
                     opacity: unlocked[index] ? 1.0 : 0.5,
@@ -59,14 +65,24 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
                           width: 3,
                         ),
                       ),
-                      child: Center(
-                        child: Text(
-                          characters[index],
-                          style: TextStyle(
-                            fontSize: 24,
-                            color: Colors.white,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            characters[index],
+                            style: TextStyle(
+                              fontSize: 24,
+                              color: Colors.white,
+                            ),
                           ),
-                        ),
+                          SizedBox(height: 10),
+                          Image.asset(
+                            characterSprites[index],
+                            width: 64, // scale 16x16 pixel sprite
+                            height: 64,
+                            filterQuality: FilterQuality.none, // keep pixelated
+                          ),
+                        ],
                       ),
                     ),
                   ),
