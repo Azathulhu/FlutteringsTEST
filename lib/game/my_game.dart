@@ -6,7 +6,7 @@ class MyGame extends FlameGame {
   Future<void> onLoad() async {
     add(
       TextComponent(
-        text: "Welcome to the Game!",
+        text: "Flutterings!",
         position: Vector2(50, 50),
       ),
     );
