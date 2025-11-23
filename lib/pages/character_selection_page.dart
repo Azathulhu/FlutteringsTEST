@@ -80,8 +80,8 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
                           SizedBox(height: 10),
                           Image.asset(
                             "assets/character sprites/${c['sprite_path']}",
-                            width: 80,
-                            height: 80,
+                            width: 128,
+                            height: 128,
                             filterQuality: FilterQuality.none,
                           ),
                         ],
