@@ -153,9 +153,17 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
 
           ElevatedButton(
             onPressed: () {
-              final selectedSub = subLevels.firstWhere(
-                  (s) => s['is_unlocked'] == true,
-                  orElse: () => null);
+              Map<String, dynamic>? selectedSub;
+          
+              // Try to find the first unlocked sub-level safely
+              try {
+                selectedSub = subLevels
+                    .firstWhere((s) => s['is_unlocked'] == true)
+                    .cast<String, dynamic>();
+              } catch (e) {
+                selectedSub = null;
+              }
+          
               if (selectedSub != null) {
                 Navigator.push(
                   context,
