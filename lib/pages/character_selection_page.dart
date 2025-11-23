@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/character_service.dart';
+import 'level_selection_page.dart'; // make sure this import points to your level selection page
 
 class CharacterSelectionPage extends StatefulWidget {
   @override
@@ -38,7 +39,7 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           SizedBox(
-            height: 380, // increased height for bigger sprite
+            height: 380,
             child: PageView.builder(
               controller: _controller,
               itemCount: characters.length,
@@ -107,8 +108,15 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
                 ? () async {
                     final charId = characters[currentPage]['id'];
                     await _characterService.selectCharacter(charId);
+
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text("Character selected!")),
+                    );
+
+                    // Navigate to Level Selection Page
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => LevelSelectionPage()),
                     );
                   }
                 : null,
