@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
+import 'package:flame/experimental.dart';
 import 'package:flutter/material.dart';
 
 class MyGame extends FlameGame {
@@ -15,8 +16,10 @@ class MyGame extends FlameGame {
   Future<void> onLoad() async {
     _rng = Random();
 
+    // Correct experimental viewport
     camera.viewport = FixedResolutionViewport(Vector2(360, 640));
 
+    // Add world elements
     add(_Background());
     add(_ObstacleSpawner());
   }
@@ -25,8 +28,8 @@ class MyGame extends FlameGame {
   void update(double dt) {
     super.update(dt);
 
-    // move the camera upward
-    camera.moveBy(Vector2(0, -scrollSpeed * dt));
+    // Correct camera movement API
+    camera.viewfinder.moveBy(Vector2(0, -scrollSpeed * dt));
   }
 }
 
@@ -34,12 +37,12 @@ class _Background extends RectangleComponent {
   _Background()
       : super(
           size: Vector2(360, 2000),
-          paint: Paint()..color = Colors.lightBlue.shade100,
+          paint: Paint()..color = Colors.lightBlueAccent,
         );
 
   @override
   Future<void> onLoad() async {
-    position = Vector2(0, -1400); // covers long vertical scroll
+    position = Vector2(0, -1400);
   }
 }
 
@@ -59,7 +62,8 @@ class _ObstacleSpawner extends Component with HasGameRef<MyGame> {
   }
 
   void spawnObstacle() {
-    final camY = gameRef.camera.position.y;
+    final camY = gameRef.camera.viewfinder.position.y; // fixed
+
     final spawnY = camY - 200;
 
     final x = 20 + gameRef._rng.nextDouble() * 280;
@@ -84,11 +88,11 @@ class _Obstacle extends RectangleComponent with HasGameRef<MyGame> {
   void update(double dt) {
     super.update(dt);
 
-    // Moves downward relative to camera movement
     position.y += moveSpeed * dt;
 
-    // Auto-remove offscreen
-    if (position.y > gameRef.camera.position.y + 800) {
+    final camY = gameRef.camera.viewfinder.position.y; // fixed
+
+    if (position.y > camY + 800) {
       removeFromParent();
     }
   }
