@@ -156,9 +156,14 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
                   (s) => s['is_unlocked'] == true,
                   orElse: () => null);
               if (selectedSub != null) {
-                // placeholder action
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Starting ${selectedSub['name']}!")),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => SubLevelGamePage(
+                      level: currentLevel,
+                      subLevel: selectedSub,
+                    ),
+                  ),
                 );
               }
             },
