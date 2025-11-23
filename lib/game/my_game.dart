@@ -1,10 +1,10 @@
 import 'dart:math';
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
-import 'package:flame/experimental.dart'; // KEEP THIS
+import 'package:flame/input.dart';
 import 'package:flutter/material.dart';
 
-class MyGame extends FlameGame {
+class MyGame extends FlameGame with HasTappables {
   final int sublevelId;
   final double scrollSpeed = 80;
 
@@ -16,14 +16,15 @@ class MyGame extends FlameGame {
   Future<void> onLoad() async {
     _rng = Random();
 
-    // 💥 FIX 1 — correct viewport for Flame 1.32.0
-    camera.viewport = FixedSizeViewport(360, 640);
-
-    // Align viewfinder for 2D scrolling
+    // ✅ Camera setup for Flame 1.32.0
+    camera.viewport = FixedResolutionViewport(Vector2(360, 640));
     camera.viewfinder.anchor = Anchor.topLeft;
     camera.viewfinder.position = Vector2.zero();
 
+    // Add background
     add(_Background());
+
+    // Add obstacle spawner
     add(_ObstacleSpawner());
   }
 
@@ -31,11 +32,12 @@ class MyGame extends FlameGame {
   void update(double dt) {
     super.update(dt);
 
-    // 💥 FIX 2 — correct camera movement (no moveBy)
+    // Move camera upwards
     camera.viewfinder.position.add(Vector2(0, -scrollSpeed * dt));
   }
 }
 
+// Background component
 class _Background extends RectangleComponent {
   _Background()
       : super(
@@ -49,6 +51,7 @@ class _Background extends RectangleComponent {
   }
 }
 
+// Obstacle spawner component
 class _ObstacleSpawner extends Component with HasGameRef<MyGame> {
   double timer = 0;
 
@@ -65,20 +68,18 @@ class _ObstacleSpawner extends Component with HasGameRef<MyGame> {
   }
 
   void spawnObstacle() {
-    final camY = gameRef.camera.viewfinder.position.y; // FIXED
+    final camY = gameRef.camera.viewfinder.position.y;
 
     final spawnY = camY - 200;
-
     final x = 20 + gameRef._rng.nextDouble() * 280;
 
-    gameRef.add(
-      _Obstacle(position: Vector2(x, spawnY)),
-    );
+    gameRef.add(_Obstacle(position: Vector2(x, spawnY)));
   }
 }
 
+// Obstacle component
 class _Obstacle extends RectangleComponent with HasGameRef<MyGame> {
-  double moveSpeed = 100;
+  final double moveSpeed = 100;
 
   _Obstacle({required Vector2 position})
       : super(
