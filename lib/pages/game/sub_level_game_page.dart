@@ -6,7 +6,11 @@ class SubLevelGamePage extends StatefulWidget {
   final Map<String, dynamic> level; // main level data
   final Map<String, dynamic> subLevel; // sub-level data
 
-  const SubLevelGamePage({required this.level, required this.subLevel, Key? key}) : super(key: key);
+  const SubLevelGamePage({
+    required this.level,
+    required this.subLevel,
+    Key? key,
+  }) : super(key: key);
 
   @override
   State<SubLevelGamePage> createState() => _SubLevelGamePageState();
@@ -19,7 +23,7 @@ class _SubLevelGamePageState extends State<SubLevelGamePage> {
   void initState() {
     super.initState();
     game = FlameGameWithBackground(
-      backgroundPath: widget.level['background_path'] as String?, // safely cast
+      backgroundPath: widget.level['background_path'] as String?, // Supabase value
     );
   }
 
@@ -31,7 +35,7 @@ class _SubLevelGamePageState extends State<SubLevelGamePage> {
   }
 }
 
-// Flame Game that only renders a background image for now
+// Flame Game that only renders the background image for now
 class FlameGameWithBackground extends FlameGame {
   final String? backgroundPath;
   late SpriteComponent background;
@@ -41,16 +45,16 @@ class FlameGameWithBackground extends FlameGame {
   @override
   Future<void> onLoad() async {
     if (backgroundPath != null && backgroundPath!.isNotEmpty) {
-      // Load sprite from asset (path relative to assets/)
+      // Load sprite from assets/background folder
       background = SpriteComponent()
         ..sprite = await loadSprite('background/$backgroundPath')
         ..size = size; // fill screen
       add(background);
     } else {
-      // Fallback: empty background
+      // Fallback: default background
       background = SpriteComponent()
-        ..size = size
-        ..sprite = await loadSprite('background/forestbg.jpg'); // optional default
+        ..sprite = await loadSprite('background/forestbg.jpg')
+        ..size = size;
       add(background);
     }
   }
@@ -58,6 +62,6 @@ class FlameGameWithBackground extends FlameGame {
   @override
   void onGameResize(Vector2 canvasSize) {
     super.onGameResize(canvasSize);
-    background.size = canvasSize; // make background fill screen
+    background.size = canvasSize; // make background always fill screen
   }
 }
