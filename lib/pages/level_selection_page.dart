@@ -34,17 +34,20 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
     if (loading) return Center(child: CircularProgressIndicator());
 
     final currentLevel = levels[currentLevelPage];
-    final subLevels = currentLevel['sub_levels'] as List<dynamic>;
+    final subLevels = (currentLevel['sub_levels'] as List<dynamic>)
+        .cast<Map<String, dynamic>>();
 
     // Find first unlocked sub-level
-    final Map<String, dynamic>? firstUnlockedSub = subLevels
-        .cast<Map<String, dynamic>>()
-        .firstWhere(
-          (s) => s['is_unlocked'] == true,
-          orElse: () => {},
-        );
+    Map<String, dynamic>? firstUnlockedSub;
+    try {
+      firstUnlockedSub =
+          subLevels.firstWhere((s) => s['is_unlocked'] == true);
+    } catch (_) {
+      firstUnlockedSub = null;
+    }
 
-    final hasUnlocked = firstUnlockedSub.isNotEmpty;
+    // Check if there is any unlocked sub-level
+    final hasUnlocked = firstUnlockedSub != null;
 
     return Scaffold(
       appBar: AppBar(title: Text("Select a Level")),
@@ -81,7 +84,7 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
                         ),
                         child: Center(
                           child: Text(
-                            lvl['name'],
+                            lvl['name'] ?? '',
                             style: TextStyle(
                               fontSize: 24,
                               color: Colors.white,
@@ -97,14 +100,15 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
                           ),
                         ),
                       ),
-                      if (!(lvl['sub_levels'] as List).any((s) => s['is_unlocked']))
+                      if (!(subLevels.any((s) => s['is_unlocked'] == true)))
                         Container(
                           decoration: BoxDecoration(
                             color: Colors.black.withOpacity(0.5),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Center(
-                            child: Icon(Icons.lock, size: 50, color: Colors.white),
+                            child:
+                                Icon(Icons.lock, size: 50, color: Colors.white),
                           ),
                         ),
                     ],
@@ -129,7 +133,7 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
                 return GestureDetector(
                   onTap: unlocked
                       ? () {
-                          // You can add sub-level selection if needed
+                          // Optional: allow selecting a specific sub-level
                         }
                       : null,
                   child: Opacity(
@@ -147,7 +151,7 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
                       ),
                       child: Center(
                         child: Text(
-                          sub['name'],
+                          sub['name'] ?? '',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 18,
@@ -169,12 +173,13 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
           ElevatedButton(
             onPressed: hasUnlocked
                 ? () {
+                    // Navigate to Flame game page safely
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => SubLevelGamePage(
                           level: currentLevel,
-                          subLevel: firstUnlockedSub,
+                          subLevel: firstUnlockedSub!,
                         ),
                       ),
                     );
