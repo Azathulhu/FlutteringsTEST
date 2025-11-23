@@ -57,6 +57,7 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
                     opacity: c['is_unlocked'] ? 1 : 0.5,
                     child: Container(
                       margin: EdgeInsets.symmetric(horizontal: 12),
+                      height: 220,
                       decoration: BoxDecoration(
                         color: Colors.blueGrey,
                         borderRadius: BorderRadius.circular(20),
@@ -80,8 +81,8 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
                           SizedBox(height: 10),
                           Image.asset(
                             "assets/character sprites/${c['sprite_path']}",
-                            width: 512,
-                            height: 512,
+                            width: 256,
+                            height: 256,
                             filterQuality: FilterQuality.none,
                           ),
                         ],
