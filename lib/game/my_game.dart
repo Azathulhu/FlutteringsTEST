@@ -1,25 +1,25 @@
 import 'dart:math';
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
-import 'package:flame/input.dart';
 import 'package:flutter/material.dart';
 
-class MyGame extends FlameGame with HasTappables {
+class MyGame extends FlameGame {
   final int sublevelId;
   final double scrollSpeed = 80;
 
-  MyGame({required this.sublevelId});
+  MyGame({required this.sublevelId})
+      : super(
+          camera: CameraComponent.withFixedResolution(
+            width: 360,
+            height: 640,
+          ),
+        );
 
   late final Random _rng;
 
   @override
   Future<void> onLoad() async {
     _rng = Random();
-
-    // ✅ Camera setup for Flame 1.32.0
-    camera.viewport = FixedResolutionViewport(Vector2(360, 640));
-    camera.viewfinder.anchor = Anchor.topLeft;
-    camera.viewfinder.position = Vector2.zero();
 
     // Add background
     add(_Background());
@@ -32,12 +32,11 @@ class MyGame extends FlameGame with HasTappables {
   void update(double dt) {
     super.update(dt);
 
-    // Move camera upwards
-    camera.viewfinder.position.add(Vector2(0, -scrollSpeed * dt));
+    // Move the camera upward
+    camera.moveBy(Vector2(0, -scrollSpeed * dt));
   }
 }
 
-// Background component
 class _Background extends RectangleComponent {
   _Background()
       : super(
@@ -51,7 +50,6 @@ class _Background extends RectangleComponent {
   }
 }
 
-// Obstacle spawner component
 class _ObstacleSpawner extends Component with HasGameRef<MyGame> {
   double timer = 0;
 
@@ -68,8 +66,8 @@ class _ObstacleSpawner extends Component with HasGameRef<MyGame> {
   }
 
   void spawnObstacle() {
+    // Use viewfinder position to spawn relative to camera
     final camY = gameRef.camera.viewfinder.position.y;
-
     final spawnY = camY - 200;
     final x = 20 + gameRef._rng.nextDouble() * 280;
 
@@ -77,7 +75,6 @@ class _ObstacleSpawner extends Component with HasGameRef<MyGame> {
   }
 }
 
-// Obstacle component
 class _Obstacle extends RectangleComponent with HasGameRef<MyGame> {
   final double moveSpeed = 100;
 
@@ -95,7 +92,6 @@ class _Obstacle extends RectangleComponent with HasGameRef<MyGame> {
     position.y += moveSpeed * dt;
 
     final camY = gameRef.camera.viewfinder.position.y;
-
     if (position.y > camY + 800) {
       removeFromParent();
     }
