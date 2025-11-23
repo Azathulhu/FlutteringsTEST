@@ -36,6 +36,16 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
     final currentLevel = levels[currentLevelPage];
     final subLevels = currentLevel['sub_levels'] as List<dynamic>;
 
+    // Find first unlocked sub-level
+    final Map<String, dynamic>? firstUnlockedSub = subLevels
+        .cast<Map<String, dynamic>>()
+        .firstWhere(
+          (s) => s['is_unlocked'] == true,
+          orElse: () => {},
+        );
+
+    final hasUnlocked = firstUnlockedSub.isNotEmpty;
+
     return Scaffold(
       appBar: AppBar(title: Text("Select a Level")),
       body: Column(
@@ -96,7 +106,7 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
                           child: Center(
                             child: Icon(Icons.lock, size: 50, color: Colors.white),
                           ),
-                        )
+                        ),
                     ],
                   ),
                 );
@@ -117,7 +127,11 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
                 final unlocked = sub['is_unlocked'] ?? false;
 
                 return GestureDetector(
-                  onTap: unlocked ? () {} : null, // placeholder
+                  onTap: unlocked
+                      ? () {
+                          // You can add sub-level selection if needed
+                        }
+                      : null,
                   child: Opacity(
                     opacity: unlocked ? 1 : 0.4,
                     child: Container(
@@ -151,31 +165,21 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
 
           SizedBox(height: 20),
 
+          // Play Button
           ElevatedButton(
-            onPressed: () {
-              Map<String, dynamic>? selectedSub;
-          
-              // Try to find the first unlocked sub-level safely
-              try {
-                selectedSub = subLevels
-                    .firstWhere((s) => s['is_unlocked'] == true)
-                    .cast<String, dynamic>();
-              } catch (e) {
-                selectedSub = null;
-              }
-          
-              if (selectedSub != null) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => SubLevelGamePage(
-                      level: currentLevel,
-                      subLevel: selectedSub,
-                    ),
-                  ),
-                );
-              }
-            },
+            onPressed: hasUnlocked
+                ? () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SubLevelGamePage(
+                          level: currentLevel,
+                          subLevel: firstUnlockedSub,
+                        ),
+                      ),
+                    );
+                  }
+                : null,
             child: Text("Play"),
           ),
         ],
