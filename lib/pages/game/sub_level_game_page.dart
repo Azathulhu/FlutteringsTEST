@@ -19,7 +19,7 @@ class _SubLevelGamePageState extends State<SubLevelGamePage> {
   void initState() {
     super.initState();
     game = FlameGameWithBackground(
-      backgroundPath: widget.level['background_path'],
+      backgroundPath: widget.level['background_path'] as String?, // safely cast
     );
   }
 
@@ -34,18 +34,23 @@ class _SubLevelGamePageState extends State<SubLevelGamePage> {
 // Flame Game that only renders a background image for now
 class FlameGameWithBackground extends FlameGame {
   final String? backgroundPath;
+  late SpriteComponent background;
 
   FlameGameWithBackground({this.backgroundPath});
 
-  late SpriteComponent background;
-
   @override
   Future<void> onLoad() async {
-    if (backgroundPath != null) {
-      // Load sprite from asset
+    if (backgroundPath != null && backgroundPath!.isNotEmpty) {
+      // Load sprite from asset (path relative to assets/)
       background = SpriteComponent()
-        ..sprite = await loadSprite('backgrounds/$backgroundPath')
-        ..size = size; // full screen
+        ..sprite = await loadSprite('background/$backgroundPath')
+        ..size = size; // fill screen
+      add(background);
+    } else {
+      // Fallback: empty background
+      background = SpriteComponent()
+        ..size = size
+        ..sprite = await loadSprite('background/forestbg.jpg'); // optional default
       add(background);
     }
   }
