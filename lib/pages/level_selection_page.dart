@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/level_service.dart';
-import '../game/game_screen.dart'; // Flame Game screen
+import 'package:flame/game.dart';
+import '../game/my_game.dart'; // your Flame Game class
 
 class LevelSelectionPage extends StatefulWidget {
   @override
@@ -91,6 +92,7 @@ class _SublevelSelectionPageState extends State<SublevelSelectionPage> {
         itemCount: sublevels.length,
         itemBuilder: (context, index) {
           final s = sublevels[index];
+
           return ListTile(
             title: Text(s['name']),
             subtitle: s['completed'] ? Text("Completed") : null,
@@ -100,8 +102,10 @@ class _SublevelSelectionPageState extends State<SublevelSelectionPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => MyGameScreen(
-                          sublevelId: s['id'],
+                        builder: (_) => Scaffold(
+                          body: GameWidget(
+                            game: MyGame(sublevelId: s['id']),
+                          ),
                         ),
                       ),
                     );
