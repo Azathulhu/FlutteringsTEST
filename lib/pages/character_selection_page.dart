@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/character_service.dart';
-import 'level_selection_page.dart'; // Make sure this exists!
 
 class CharacterSelectionPage extends StatefulWidget {
   @override
@@ -27,33 +26,11 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
       characters = data;
       loading = false;
     });
-    print("Loaded characters: $characters"); // Debug
-  }
-
-  void selectCharacter() async {
-    final c = characters[currentPage];
-    final charId = c['id'];
-
-    print("Selecting character: ${c['name']} (ID: $charId)"); // Debug
-
-    await _characterService.selectCharacter(charId);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("${c['name']} selected!")),
-    );
-
-    // Navigate to Level Selection
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => LevelSelectionPage()),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     if (loading) return Center(child: CircularProgressIndicator());
-
-    final c = characters[currentPage];
 
     return Scaffold(
       appBar: AppBar(title: Text("Select Your Character")),
@@ -61,13 +38,13 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           SizedBox(
-            height: 380,
+            height: 380, // increased height for bigger sprite
             child: PageView.builder(
               controller: _controller,
               itemCount: characters.length,
               onPageChanged: (i) => setState(() => currentPage = i),
               itemBuilder: (context, index) {
-                final character = characters[index];
+                final c = characters[index];
                 double angle = (index - currentPage) * 0.3;
 
                 return Transform(
@@ -76,7 +53,7 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
                     ..setEntry(3, 2, 0.001)
                     ..rotateY(angle),
                   child: Opacity(
-                    opacity: character['is_unlocked'] ? 1 : 0.5,
+                    opacity: c['is_unlocked'] ? 1 : 0.5,
                     child: Container(
                       margin: EdgeInsets.symmetric(horizontal: 12),
                       padding: EdgeInsets.symmetric(vertical: 12),
@@ -84,9 +61,7 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
                         color: Colors.blueGrey,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: character['is_unlocked']
-                              ? Colors.white
-                              : Colors.redAccent,
+                          color: c['is_unlocked'] ? Colors.white : Colors.redAccent,
                           width: 3,
                         ),
                       ),
@@ -94,7 +69,7 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            character['name'],
+                            c['name'],
                             style: TextStyle(
                               fontSize: 24,
                               color: Colors.white,
@@ -106,7 +81,7 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
                             width: 180,
                             height: 180,
                             child: Image.asset(
-                              "assets/character sprites/${character['sprite_path']}",
+                              "assets/character sprites/${c['sprite_path']}",
                               fit: BoxFit.contain,
                               filterQuality: FilterQuality.none,
                             ),
@@ -121,14 +96,22 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
           ),
           SizedBox(height: 30),
           Text(
-            c['is_unlocked']
+            characters[currentPage]['is_unlocked']
                 ? "This character is unlocked."
                 : "Locked. Reach level X to unlock.",
             style: TextStyle(fontSize: 18),
           ),
           SizedBox(height: 20),
           ElevatedButton(
-            onPressed: c['is_unlocked'] ? selectCharacter : null,
+            onPressed: characters[currentPage]['is_unlocked']
+                ? () async {
+                    final charId = characters[currentPage]['id'];
+                    await _characterService.selectCharacter(charId);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Character selected!")),
+                    );
+                  }
+                : null,
             child: Text("Select"),
           ),
         ],
