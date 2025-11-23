@@ -41,4 +41,3 @@ class SupabaseService {
     return result;
   }
 }
-
