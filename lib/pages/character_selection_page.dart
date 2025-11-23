@@ -7,7 +7,7 @@ class CharacterSelectionPage extends StatefulWidget {
 }
 
 class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
-  final PageController _controller = PageController(viewportFraction: 0.55);
+  final PageController _controller = PageController(viewportFraction: 0.6);
   final CharacterService _characterService = CharacterService();
 
   int currentPage = 0;
@@ -38,7 +38,7 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           SizedBox(
-            height: 320,
+            height: 380, // increased height for bigger sprite
             child: PageView.builder(
               controller: _controller,
               itemCount: characters.length,
@@ -56,35 +56,41 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
                   child: Opacity(
                     opacity: c['is_unlocked'] ? 1 : 0.5,
                     child: Container(
-                    margin: EdgeInsets.symmetric(horizontal: 12),
-                    padding: EdgeInsets.symmetric(vertical: 16), // give extra space
-                    decoration: BoxDecoration(
-                      color: Colors.blueGrey,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: c['is_unlocked'] ? Colors.white : Colors.redAccent,
-                        width: 3,
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          c['name'],
-                          style: TextStyle(fontSize: 24, color: Colors.white),
+                      margin: EdgeInsets.symmetric(horizontal: 12),
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.blueGrey,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: c['is_unlocked']
+                              ? Colors.white
+                              : Colors.redAccent,
+                          width: 3,
                         ),
-                        SizedBox(height: 16),
-                        Expanded(  // let the sprite take up remaining vertical space
-                          child: Center(
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            c['name'],
+                            style: TextStyle(
+                              fontSize: 24,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 16),
+                          Container(
+                            width: 180,
+                            height: 180,
                             child: Image.asset(
                               "assets/character sprites/${c['sprite_path']}",
-                              width: 160,
-                              height: 160,
+                              fit: BoxFit.contain,
                               filterQuality: FilterQuality.none,
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 );
