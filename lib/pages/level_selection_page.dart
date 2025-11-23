@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/level_service.dart';
-import '../../game/game_screen.dart'; // Flame Game screen
+import '../game/game_screen.dart'; // Flame Game screen
 
 class LevelSelectionPage extends StatefulWidget {
   @override
