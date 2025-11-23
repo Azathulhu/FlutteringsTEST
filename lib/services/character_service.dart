@@ -9,7 +9,6 @@ class CharacterService {
     if (user == null) return [];
 
     final characters = await supabase.from('characters').select();
-
     final unlockedRows = await supabase
         .from('user_characters')
         .select()
@@ -19,7 +18,6 @@ class CharacterService {
       final unlocked = unlockedRows.any(
         (u) => u['character_id'] == c['id'] && u['is_unlocked'],
       );
-
       return {
         ...c,
         'is_unlocked': unlocked || c['is_default'] == true,
@@ -32,9 +30,10 @@ class CharacterService {
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
-    await supabase.from('users_meta').update({
-      'selected_character_id': characterId,
-    }).eq('user_id', user.id);
+    await supabase
+        .from('users_meta')
+        .update({'selected_character_id': characterId})
+        .eq('user_id', user.id);
   }
 
   // Unlock a character
