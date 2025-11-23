@@ -56,37 +56,35 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
                   child: Opacity(
                     opacity: c['is_unlocked'] ? 1 : 0.5,
                     child: Container(
-                      margin: EdgeInsets.symmetric(horizontal: 12),
-                      height: 220,
-                      decoration: BoxDecoration(
-                        color: Colors.blueGrey,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: c['is_unlocked']
-                              ? Colors.white
-                              : Colors.redAccent,
-                          width: 3,
-                        ),
+                    margin: EdgeInsets.symmetric(horizontal: 12),
+                    padding: EdgeInsets.symmetric(vertical: 16), // give extra space
+                    decoration: BoxDecoration(
+                      color: Colors.blueGrey,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: c['is_unlocked'] ? Colors.white : Colors.redAccent,
+                        width: 3,
                       ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            c['name'],
-                            style: TextStyle(
-                              fontSize: 22,
-                              color: Colors.white,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          c['name'],
+                          style: TextStyle(fontSize: 24, color: Colors.white),
+                        ),
+                        SizedBox(height: 16),
+                        Expanded(  // let the sprite take up remaining vertical space
+                          child: Center(
+                            child: Image.asset(
+                              "assets/character sprites/${c['sprite_path']}",
+                              width: 160,
+                              height: 160,
+                              filterQuality: FilterQuality.none,
                             ),
                           ),
-                          SizedBox(height: 10),
-                          Image.asset(
-                            "assets/character sprites/${c['sprite_path']}",
-                            width: 256,
-                            height: 256,
-                            filterQuality: FilterQuality.none,
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 );
