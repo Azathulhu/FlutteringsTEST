@@ -47,13 +47,13 @@ class FlameGameWithBackground extends FlameGame {
     if (backgroundPath != null && backgroundPath!.isNotEmpty) {
       // Load sprite from assets/background folder
       background = SpriteComponent()
-        ..sprite = await loadSprite('background/$backgroundPath')
+        ..sprite = await loadSprite('images/background/$backgroundPath')
         ..size = size; // fill screen
       add(background);
     } else {
       // Fallback: default background
       background = SpriteComponent()
-        ..sprite = await loadSprite('background/forestbg.jpg')
+        ..sprite = await loadSprite('images/background/images (17).jpg')
         ..size = size;
       add(background);
     }
