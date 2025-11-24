@@ -44,20 +44,23 @@ class FlameGameWithBackground extends FlameGame {
 
   @override
   Future<void> onLoad() async {
-    if (backgroundPath != null && backgroundPath!.isNotEmpty) {
-      // Load sprite from assets/background folder
-      background = SpriteComponent()
-        ..sprite = await loadSprite('assets/images/background/$backgroundPath')
-        ..size = size; // fill screen
-      add(background);
-    } else {
-      // Fallback: default background
-      background = SpriteComponent()
-        ..sprite = await loadSprite('assets/images/background/images (17).jpg')
-        ..size = size;
-      add(background);
-    }
+    final file = (backgroundPath != null && backgroundPath!.isNotEmpty)
+        ? backgroundPath!
+        : 'images (17).jpeg';
+
+    // MUST MATCH pubspec and folder exactly
+    final sprite = await Sprite.load('images/background/$file');
+
+    background = SpriteComponent(sprite: sprite, size: size);
+    add(background);
   }
+
+  @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    background.size = size;
+  }
+}
 
   @override
   void onGameResize(Vector2 canvasSize) {
