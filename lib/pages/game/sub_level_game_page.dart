@@ -46,13 +46,18 @@ class FlameGameWithBackground extends FlameGame {
 
   @override
   Future<void> onLoad() async {
-    final imageName = (backgroundPath != null && backgroundPath!.isNotEmpty)
-        ? backgroundPath!
-        : 'forest.jpeg';
+    final String path;
 
-    final sprite = await Sprite.load('images/background/$imageName');
+    if (backgroundPath != null && backgroundPath!.isNotEmpty) {
+      path = 'assets/images/background/$backgroundPath';
+    } else {
+      path = 'assets/images/background/forest.jpeg';
+    }
 
-    background = SpriteComponent(sprite: sprite, size: size);
+    background = SpriteComponent()
+      ..sprite = await loadSprite(path)
+      ..size = size;
+
     add(background);
   }
 
