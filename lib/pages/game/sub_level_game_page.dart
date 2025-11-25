@@ -1,16 +1,15 @@
 import 'package:flame/game.dart';
-import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 
 class SubLevelGamePage extends StatefulWidget {
-  final Map<String, dynamic> level; // main level data
-  final Map<String, dynamic> subLevel; // sub-level data
+  final Map<String, dynamic> level;
+  final Map<String, dynamic> subLevel;
 
   const SubLevelGamePage({
     required this.level,
     required this.subLevel,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   State<SubLevelGamePage> createState() => _SubLevelGamePageState();
@@ -18,32 +17,52 @@ class SubLevelGamePage extends StatefulWidget {
 
 class _SubLevelGamePageState extends State<SubLevelGamePage> {
   late final FlameGame game;
-  late final String backgroundAsset;
+  late String? backgroundUrl;
 
   @override
   void initState() {
     super.initState();
 
-    // Get background path safely from Supabase
-    final bgFromSupabase = (widget.level['background_path'] as String?)?.trim();
-    backgroundAsset = (bgFromSupabase != null && bgFromSupabase.isNotEmpty)
-        ? bgFromSupabase
-        : 'forest.jpeg'; // fallback
+    // read from Supabase
+    final raw = widget.level['background_path'] as String?;
 
-    game = FlameGame(); // Flame only handles the game, not the background
+    // validate url
+    if (raw != null && raw.trim().isNotEmpty && raw.startsWith("http")) {
+      backgroundUrl = raw.trim();
+    } else {
+      // fallback image from the internet
+      backgroundUrl =
+          "https://picsum.photos/800/1600"; // you can use any default
+    }
+
+    game = FlameGame();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/background/$backgroundAsset'),
-            fit: BoxFit.cover,
+      body: Stack(
+        children: [
+          // Background from Internet
+          Positioned.fill(
+            child: Image.network(
+              backgroundUrl!,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(color: Colors.black); // fallback
+              },
+              loadingBuilder: (context, child, progress) {
+                if (progress == null) return child;
+                return const Center(child: CircularProgressIndicator());
+              },
+            ),
           ),
-        ),
-        child: GameWidget(game: game),
+
+          // Flame game above background
+          Positioned.fill(
+            child: GameWidget(game: game),
+          )
+        ],
       ),
     );
   }
