@@ -2,7 +2,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
 class SubLevelGamePage extends StatefulWidget {
-  final Map<String, dynamic> level; // main level data
+  final Map<String, dynamic> level; // main level data from Supabase
   final Map<String, dynamic> subLevel; // sub-level data
 
   const SubLevelGamePage({
@@ -21,18 +21,31 @@ class _SubLevelGamePageState extends State<SubLevelGamePage> {
   @override
   void initState() {
     super.initState();
-    game = FlameGame(); // just an empty game for now
+    game = FlameGame(); // empty for now
   }
 
   @override
   Widget build(BuildContext context) {
-     return Scaffold(
-       body: Image.asset(
-         'assets/images/background/forest.jpeg',
-         fit: BoxFit.cover,
-         width: double.infinity,
-         height: double.infinity,
-       ),
-     );
-   }
+    // Use background_path from Supabase, fallback to forest.jpeg
+    final bgPath = widget.level['background_path'] as String? ?? 'forest.jpeg';
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/background/$bgPath',
+              fit: BoxFit.cover,
+            ),
+          ),
+          Positioned.fill(
+            child: GameWidget(
+              game: game,
+              backgroundBuilder: (_) => Container(), // transparent
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
