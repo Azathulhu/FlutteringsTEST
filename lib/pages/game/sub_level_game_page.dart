@@ -1,8 +1,9 @@
 import 'package:flame/game.dart';
+import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 
 class SubLevelGamePage extends StatefulWidget {
-  final Map<String, dynamic> level; // main level data from Supabase
+  final Map<String, dynamic> level; // main level data
   final Map<String, dynamic> subLevel; // sub-level data
 
   const SubLevelGamePage({
@@ -17,34 +18,32 @@ class SubLevelGamePage extends StatefulWidget {
 
 class _SubLevelGamePageState extends State<SubLevelGamePage> {
   late final FlameGame game;
+  late final String backgroundAsset;
 
   @override
   void initState() {
     super.initState();
-    game = FlameGame(); // empty for now
+
+    // Get background path safely from Supabase
+    final bgFromSupabase = (widget.level['background_path'] as String?)?.trim();
+    backgroundAsset = (bgFromSupabase != null && bgFromSupabase.isNotEmpty)
+        ? bgFromSupabase
+        : 'forest.jpeg'; // fallback
+
+    game = FlameGame(); // Flame only handles the game, not the background
   }
 
   @override
   Widget build(BuildContext context) {
-    // Use background_path from Supabase, fallback to forest.jpeg
-    final bgPath = widget.level['background_path'] as String? ?? 'forest.jpeg';
-
     return Scaffold(
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/background/$bgPath',
-              fit: BoxFit.cover,
-            ),
+      body: Container(
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/background/$backgroundAsset'),
+            fit: BoxFit.cover,
           ),
-          Positioned.fill(
-            child: GameWidget(
-              game: game,
-              backgroundBuilder: (_) => Container(), // transparent
-            ),
-          ),
-        ],
+        ),
+        child: GameWidget(game: game),
       ),
     );
   }
