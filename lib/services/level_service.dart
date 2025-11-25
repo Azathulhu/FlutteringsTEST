@@ -8,6 +8,7 @@ class LevelService {
     final user = supabase.auth.currentUser;
     if (user == null) return [];
 
+    // Fetch levels (including background_path from Supabase)
     final levels = await supabase.from('levels').select();
     final subLevels = await supabase.from('sub_levels').select();
     final userLevels = await supabase
@@ -16,13 +17,16 @@ class LevelService {
         .eq('user_id', user.id);
 
     return levels.map((lvl) {
+      // Collect sub-levels for this level
       final subs = subLevels.where((s) => s['level_id'] == lvl['id']).toList();
 
+      // Merge user unlock/completion status
       final updatedSubs = subs.map((sub) {
         final userSub = userLevels.firstWhere(
           (u) => u['level_id'] == lvl['id'] && u['sub_level_id'] == sub['id'],
           orElse: () => {},
         );
+
         return {
           ...sub,
           'is_unlocked': userSub['is_unlocked'] ?? sub['is_default'] ?? false,
@@ -33,6 +37,8 @@ class LevelService {
       return {
         ...lvl,
         'sub_levels': updatedSubs,
+        // include background_path here from Supabase
+        'background_path': lvl['background_path'] ?? 'forest.jpeg', 
       };
     }).toList();
   }
