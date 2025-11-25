@@ -32,8 +32,7 @@ class _SubLevelGamePageState extends State<SubLevelGamePage> {
     } else {
       // fallback image from the internet
       backgroundUrl =
-          "https://picsum.photos/800/1600"; // you can use any default
-    }
+          "https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?fm=jpg&q=60&w=3000&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8Zm9yZXN0fGVufDB8fDB8fHww";
 
     game = FlameGame();
   }
