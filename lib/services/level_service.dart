@@ -38,7 +38,7 @@ class LevelService {
         ...lvl,
         'sub_levels': updatedSubs,
         // include background_path here from Supabase
-        'background_path': lvl['background_path'] ?? 'forest.jpeg', 
+        'background_path': lvl['background_path'] ?? 'https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?fm=jpg&q=60&w=3000&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8Zm9yZXN0fGVufDB8fDB8fHww', 
       };
     }).toList();
   }
