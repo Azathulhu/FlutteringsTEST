@@ -1,5 +1,4 @@
 import 'package:flame/game.dart';
-import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 
 class SubLevelGamePage extends StatefulWidget {
@@ -22,48 +21,30 @@ class _SubLevelGamePageState extends State<SubLevelGamePage> {
   @override
   void initState() {
     super.initState();
-    game = FlameGameWithBackground(
-      backgroundPath: widget.level['background_path'] as String?,
-    );
+    game = FlameGame(); // just an empty game for now
   }
 
   @override
   Widget build(BuildContext context) {
+    final bgPath = widget.level['background_path'] as String? ?? 'forest.jpeg';
+
     return Scaffold(
-      body: GameWidget(game: game),
+      body: Stack(
+        children: [
+          // Flutter handles the background image
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/background/$bgPath',
+              fit: BoxFit.cover,
+            ),
+          ),
+
+          // Flame game renders on top
+          Positioned.fill(
+            child: GameWidget(game: game),
+          ),
+        ],
+      ),
     );
-  }
-}
-
-// --------------------------------------------------
-//                GAME WITH BACKGROUND
-// --------------------------------------------------
-class FlameGameWithBackground extends FlameGame {
-  final String? backgroundPath;
-  late SpriteComponent background;
-
-  FlameGameWithBackground({this.backgroundPath});
-
-  @override
-  Future<void> onLoad() async {
-    final String path;
-
-    if (backgroundPath != null && backgroundPath!.isNotEmpty) {
-      path = 'assets/images/background/$backgroundPath';
-    } else {
-      path = 'assets/images/background/forest.jpeg';
-    }
-
-    background = SpriteComponent()
-      ..sprite = await loadSprite(path)
-      ..size = size;
-
-    add(background);
-  }
-
-  @override
-  void onGameResize(Vector2 canvasSize) {
-    super.onGameResize(canvasSize);
-    background.size = canvasSize;
   }
 }
