@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/character_service.dart';
-import 'level_selection_page.dart';
+import 'level_selection_page.dart'; // make sure this import points to your level selection page
 
 class CharacterSelectionPage extends StatefulWidget {
   @override
@@ -10,7 +10,6 @@ class CharacterSelectionPage extends StatefulWidget {
 class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
   final PageController _controller = PageController(viewportFraction: 0.6);
   final CharacterService _characterService = CharacterService();
-
   int currentPage = 0;
   List<Map<String, dynamic>> characters = [];
   bool loading = true;
@@ -47,10 +46,11 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
               itemBuilder: (context, index) {
                 final c = characters[index];
                 double angle = (index - currentPage) * 0.3;
-
                 return Transform(
                   alignment: Alignment.center,
-                  transform: Matrix4.identity()..setEntry(3, 2, 0.001)..rotateY(angle),
+                  transform: Matrix4.identity()
+                    ..setEntry(3, 2, 0.001)
+                    ..rotateY(angle),
                   child: Opacity(
                     opacity: c['is_unlocked'] ? 1 : 0.5,
                     child: Container(
@@ -80,7 +80,7 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
                             width: 180,
                             height: 180,
                             child: Image.asset(
-                              "assets/character_sprites/${c['sprite_path']}",
+                              "assets/character sprites/${c['sprite_path']}",
                               fit: BoxFit.contain,
                               filterQuality: FilterQuality.none,
                             ),
@@ -93,20 +93,26 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
               },
             ),
           ),
+          SizedBox(height: 30),
+          Text(
+            characters[currentPage]['is_unlocked']
+                ? "This character is unlocked."
+                : "Locked. Reach level X to unlock.",
+            style: TextStyle(fontSize: 18),
+          ),
           SizedBox(height: 20),
           ElevatedButton(
             onPressed: characters[currentPage]['is_unlocked']
                 ? () async {
                     final charId = characters[currentPage]['id'];
                     await _characterService.selectCharacter(charId);
-
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Character selected!")),
+                    );
+                    // Navigate to Level Selection Page
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => LevelSelectionPage(
-                          selectedCharacter: characters[currentPage], // ✅ pass selected character
-                        ),
-                      ),
+                      MaterialPageRoute(builder: (context) => LevelSelectionPage()),
                     );
                   }
                 : null,
