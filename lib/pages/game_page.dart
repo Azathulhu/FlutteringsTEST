@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
 import 'package:flame/input.dart';
+import 'package:flutter/services.dart';
 
 class GamePage extends StatelessWidget {
   final Map<String, dynamic> level;
@@ -34,52 +35,57 @@ class GamePage extends StatelessWidget {
   }
 }
 
-// Simple Flame game with a movable square
+// Minimal Flame game with a movable square
 class SimpleMovingSquareGame extends FlameGame
-    with KeyboardEvents, HasGameRef<SimpleMovingSquareGame> {
+    with HasKeyboardHandlerComponents {
   late SquareComponent square;
 
   @override
   Future<void> onLoad() async {
     super.onLoad();
-    // Add a square in the middle
-    square = SquareComponent()
-      ..position = Vector2(size.x / 2 - 25, size.y / 2 - 25)
-      ..size = Vector2(50, 50)
-      ..paint = Paint()..color = Colors.blue;
+    // Add a square
+    square = SquareComponent(
+      position: Vector2(size.x / 2 - 25, size.y / 2 - 25),
+      size: Vector2(50, 50),
+    );
     add(square);
   }
 
   @override
-  KeyEventResult onKeyEvent(
-      RawKeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+  bool onKeyEvent(KeyEvent event, Set<KeyEvent> keysPressed) {
     final step = 10.0;
-    if (keysPressed.contains(LogicalKeyboardKey.arrowUp)) {
+    // Use event.logicalKey to move
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
       square.position.y -= step;
     }
-    if (keysPressed.contains(LogicalKeyboardKey.arrowDown)) {
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
       square.position.y += step;
     }
-    if (keysPressed.contains(LogicalKeyboardKey.arrowLeft)) {
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
       square.position.x -= step;
     }
-    if (keysPressed.contains(LogicalKeyboardKey.arrowRight)) {
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
       square.position.x += step;
     }
-    return KeyEventResult.handled;
+    return true;
   }
 }
 
 // Simple square component
 class SquareComponent extends PositionComponent {
-  late Paint paint;
+  final Paint paint = Paint()..color = Colors.blue;
+
+  SquareComponent({Vector2? position, Vector2? size}) {
+    this.position = position ?? Vector2.zero();
+    this.size = size ?? Vector2.all(50);
+  }
 
   @override
   void render(Canvas canvas) {
-    super.render(canvas);
     canvas.drawRect(size.toRect(), paint);
   }
 }
+
 
 /*import 'package:flutter/material.dart';
 
