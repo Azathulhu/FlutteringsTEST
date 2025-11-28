@@ -58,13 +58,13 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   Future<void> loadSelectedCharacter() async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
-  
+
     final meta = await supabase
         .from('users_meta')
         .select()
         .eq('user_id', user.id)
         .maybeSingle();
-  
+
     if (meta != null && meta['selected_character_id'] != null) {
       final characterId = meta['selected_character_id'];
       final charData = await supabase
@@ -72,36 +72,34 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
           .select()
           .eq('id', characterId)
           .maybeSingle();
-  
+
       if (charData != null) {
         setState(() {
           characterSprite = charData['sprite_path'];
           jumpStrength = charData['jump_strength']?.toDouble() ?? 20;
         });
-  
-        // Wait for screen dimensions first
+
         screenWidth = MediaQuery.of(context).size.width;
         screenHeight = MediaQuery.of(context).size.height;
-  
-        // **Add starting platform synchronously**
+
+        // Add initial platform
         platforms.add(
           Platform(
             x: screenWidth / 2 - platformWidth / 2,
-            y: screenHeight - 150, // 150 px from bottom
+            y: screenHeight - 150,
             width: platformWidth,
           ),
         );
-  
-        // Character starts on top of the first platform
+
+        // Character starts above the first platform with upward velocity
         charX = 0;
         charY = platforms[0].y - characterHeight;
-  
-        // **Start game loop now**
+        charVy = -jumpStrength; // Start bouncing immediately
+
         startGame();
       }
     }
   }
-
 
   void startGame() {
     _controller = AnimationController(
@@ -111,7 +109,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
     _controller.repeat();
 
-    // Start accelerometer listener
     _accelerometerSubscription =
         accelerometerEvents.listen((AccelerometerEvent event) {
       setState(() {
@@ -136,9 +133,9 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
             charX - characterWidth / 2 <= platform.x + platform.width &&
             charVy > 0) {
           charY = platform.y - characterHeight;
-          charVy = -jumpStrength; // Auto jump
-          platform.hasBounced = true; // Mark as bounced
-          break; // Only one bounce per frame
+          charVy = -jumpStrength; // Bounce
+          platform.hasBounced = true;
+          break;
         }
       }
 
@@ -222,7 +219,7 @@ class Platform {
   double x;
   double y;
   double width;
-  bool hasBounced = false; // Disable further collision after bounce
+  bool hasBounced = false;
 
   Platform({required this.x, required this.y, required this.width});
 }
