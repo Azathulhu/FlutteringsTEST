@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
 import '../flame/player_game.dart';
+import '../flame/controls_overlay.dart';
 import '../services/input_service.dart';
 
 class GamePage extends StatelessWidget {
@@ -19,7 +20,7 @@ class GamePage extends StatelessWidget {
     final inputService = InputService();
 
     final game = PlayerGame(
-      levelBackground: level['background_image'],
+      levelBackground: subLevel['background_image'],
       characterData: character,
       inputService: inputService,
     );
