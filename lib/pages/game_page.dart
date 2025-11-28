@@ -82,19 +82,20 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         screenWidth = MediaQuery.of(context).size.width;
         screenHeight = MediaQuery.of(context).size.height;
 
-        // Add initial platform
+        // Add FIRST platform under character
+        final firstPlatformY = screenHeight - 150;
         platforms.add(
           Platform(
             x: screenWidth / 2 - platformWidth / 2,
-            y: screenHeight - 150,
+            y: firstPlatformY,
             width: platformWidth,
           ),
         );
 
-        // Character starts above the first platform with upward velocity
+        // Character starts ABOVE the first platform
         charX = 0;
-        charY = platforms[0].y - characterHeight;
-        charVy = -jumpStrength; // Start bouncing immediately
+        charY = firstPlatformY - characterHeight;
+        charVy = -jumpStrength; // first bounce
 
         startGame();
       }
@@ -113,56 +114,58 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         accelerometerEvents.listen((AccelerometerEvent event) {
       setState(() {
         charX += -event.x * horizontalSpeedMultiplier;
-        charX = charX.clamp(-screenWidth / 2 + characterWidth / 2,
-            screenWidth / 2 - characterWidth / 2);
+        charX = charX.clamp(
+          -screenWidth / 2 + characterWidth / 2,
+          screenWidth / 2 - characterWidth / 2,
+        );
       });
     });
   }
 
   void updateGame() {
     setState(() {
-      // Save previous Y to check top collision
       double prevCharY = charY;
 
-      // Apply physics
+      // Physics
       charVy += gravity;
       charY += charVy;
 
-      // Check collisions with platforms (top only)
+      // Platform collisions (TOP only)
       for (var platform in platforms) {
-        bool feetWereAbove = prevCharY + characterHeight <= platform.y;
-        bool feetNowBelow = charY + characterHeight >= platform.y;
-        bool horizontallyOverlapping =
-            charX + characterWidth / 2 >= platform.x &&
+        bool aboveBefore = prevCharY + characterHeight <= platform.y;
+        bool belowAfter = charY + characterHeight >= platform.y;
+        bool horizontalHit = charX + characterWidth / 2 >= platform.x &&
             charX - characterWidth / 2 <= platform.x + platform.width;
 
-        if (feetWereAbove && feetNowBelow && horizontallyOverlapping && charVy > 0) {
-          charY = platform.y - characterHeight; // place on top
+        if (aboveBefore && belowAfter && horizontalHit && charVy > 0) {
+          charY = platform.y - characterHeight;
           charVy = -jumpStrength; // bounce
-          break; // only bounce on one platform per frame
+          break;
         }
       }
 
-      // Scroll screen up
+      // Screen scroll
       if (charY < screenHeight / 2) {
         double offset = screenHeight / 2 - charY;
         charY = screenHeight / 2;
+
         for (var platform in platforms) {
           platform.y += offset;
         }
       }
 
-      // Remove platforms below screen
+      // Remove platforms off-screen
       platforms.removeWhere((p) => p.y > screenHeight);
 
       // Generate new platforms above
       while (platforms.length < 10) {
-        double lastY = platforms.isEmpty
-            ? screenHeight - 50
-            : platforms.map((p) => p.y).reduce(min);
-        double newY = lastY - random.nextInt(150) - 80;
+        double highestY = platforms.map((p) => p.y).reduce(min);
+        double newY = highestY - 120 - random.nextInt(100);
         double newX = random.nextDouble() * (screenWidth - platformWidth);
-        platforms.add(Platform(x: newX, y: newY, width: platformWidth));
+
+        platforms.add(
+          Platform(x: newX, y: newY, width: platformWidth),
+        );
       }
     });
   }
@@ -186,10 +189,10 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
             ),
           ),
 
-          // Platforms
+          // Platforms (TOP-based coordinates)
           ...platforms.map((p) {
             return Positioned(
-              bottom: screenHeight - p.y,
+              top: p.y,
               left: p.x,
               child: Container(
                 width: p.width,
@@ -199,10 +202,10 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
             );
           }).toList(),
 
-          // Character
+          // Character (TOP-based coordinates)
           if (characterSprite.isNotEmpty)
             Positioned(
-              bottom: screenHeight - charY - characterHeight,
+              top: charY,
               left: screenWidth / 2 + charX - characterWidth / 2,
               child: SizedBox(
                 width: characterWidth,
