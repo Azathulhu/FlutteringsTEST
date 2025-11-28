@@ -27,7 +27,6 @@ class PlayerComponent extends SpriteComponent with HasGameRef<PlayerGame> {
   void update(double dt) {
     super.update(dt);
 
-    // Horizontal movement
     if (inputService.moveLeft) {
       velocity.x = -speed;
     } else if (inputService.moveRight) {
@@ -36,10 +35,8 @@ class PlayerComponent extends SpriteComponent with HasGameRef<PlayerGame> {
       velocity.x = 0;
     }
 
-    // Gravity
     velocity.y += gravity * dt;
 
-    // Jump
     if (inputService.jump && onGround) {
       velocity.y = jumpForce;
       onGround = false;
@@ -47,7 +44,6 @@ class PlayerComponent extends SpriteComponent with HasGameRef<PlayerGame> {
 
     position += velocity * dt;
 
-    // Ground collision
     final groundY = gameRef.size.y - 50;
     if (position.y + size.y >= groundY) {
       position.y = groundY - size.y;
