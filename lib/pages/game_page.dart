@@ -3,6 +3,7 @@ import 'package:flame/game.dart';
 import 'package:flame/flame.dart';
 import 'package:flame/widgets/game_widget.dart';
 import '../services/character_service.dart';
+import '../game/my_platformer_game.dart'; 
 
 class GamePage extends StatefulWidget {
   final Map<String, dynamic> level;
