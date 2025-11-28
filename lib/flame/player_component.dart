@@ -1,9 +1,7 @@
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
-import 'package:flame/input.dart';
 
-class PlayerComponent extends SpriteComponent
-    with HasGameRef<PlayerGame>, KeyboardHandler {
+class PlayerComponent extends SpriteComponent {
   double speed = 200;
   double jumpSpeed = -400;
   double gravity = 800;
@@ -19,11 +17,13 @@ class PlayerComponent extends SpriteComponent
   void update(double dt) {
     super.update(dt);
 
+    // Apply gravity
     velocity.y += gravity * dt;
     position += velocity * dt;
 
-    if (position.y + size.y >= gameRef.size.y - 50) {
-      position.y = gameRef.size.y - 50 - size.y;
+    // Ground collision
+    if (position.y + size.y >= 500) { // temporary ground y position
+      position.y = 500 - size.y;
       velocity.y = 0;
       onGround = true;
     }
