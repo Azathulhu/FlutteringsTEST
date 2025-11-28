@@ -1,7 +1,8 @@
 import 'package:flame/components.dart';
+import 'package:flame/game.dart';
 import '../services/input_service.dart';
 
-class PlayerComponent extends SpriteComponent {
+class PlayerComponent extends SpriteComponent with HasGameRef<PlayerGame> {
   final Map<String, dynamic> characterData;
   final InputService inputService;
 
@@ -11,19 +12,21 @@ class PlayerComponent extends SpriteComponent {
   double gravity = 800;
   bool onGround = false;
 
-  PlayerComponent({required this.characterData, required this.inputService})
-      : super(size: Vector2(64, 64));
+  PlayerComponent({
+    required this.characterData,
+    required this.inputService,
+  }) : super(size: Vector2(64, 64));  // adjust as needed
 
   @override
   Future<void> onLoad() async {
-    sprite = await Sprite.load('character_sprites/${characterData['sprite_path']}');
+    sprite = await gameRef.loadSprite('character_sprites/${characterData['sprite_path']}');
   }
 
   @override
   void update(double dt) {
     super.update(dt);
 
-    // Horizontal movement
+    // horizontal
     if (inputService.moveLeft) {
       velocity.x = -speed;
     } else if (inputService.moveRight) {
@@ -32,22 +35,21 @@ class PlayerComponent extends SpriteComponent {
       velocity.x = 0;
     }
 
-    // Gravity
+    // gravity
     velocity.y += gravity * dt;
 
-    // Jump
+    // jump
     if (inputService.jump && onGround) {
       velocity.y = jumpForce;
       onGround = false;
     }
 
-    // Move player
-    x += velocity.x * dt;
-    y += velocity.y * dt;
+    position += velocity * dt;
 
-    // Simple floor collision
-    if (y + height >= gameRef.size.y - 50) {
-      y = gameRef.size.y - 50 - height;
+    // simple ground collision
+    final groundY = gameRef.size.y - 50;  // adjust ground offset
+    if (position.y + size.y >= groundY) {
+      position.y = groundY - size.y;
       velocity.y = 0;
       onGround = true;
     }
