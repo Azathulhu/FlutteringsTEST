@@ -3,7 +3,7 @@ import '../services/level_service.dart';
 import 'sub_level_selection_page.dart';
 
 class LevelSelectionPage extends StatefulWidget {
-  final Map<String, dynamic> selectedCharacter; // ⚠ Pass selected character
+  final Map<String, dynamic> selectedCharacter;
 
   LevelSelectionPage({required this.selectedCharacter});
 
@@ -53,16 +53,14 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
 
                 return GestureDetector(
                   onTap: () {
-                    // Load sublevels from level service or directly from level map
                     final subLevels = level['subLevels'] ?? [];
-
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => SubLevelSelectionPage(
                           level: level,
-                          selectedCharacter: widget.selectedCharacter, // ✅ Pass it
-                          subLevels: subLevels,                        // ✅ Pass sublevels
+                          selectedCharacter: widget.selectedCharacter,
+                          subLevels: subLevels,
                         ),
                       ),
                     );
@@ -86,10 +84,7 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           shadows: [
-                            Shadow(
-                                color: Colors.black,
-                                offset: Offset(2, 2),
-                                blurRadius: 4),
+                            Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 4),
                           ],
                         ),
                       ),
