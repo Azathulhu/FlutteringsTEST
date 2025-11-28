@@ -1,29 +1,30 @@
+import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import '../flame/player_game.dart';
 
 class GamePage extends StatelessWidget {
   final Map<String, dynamic> level;
   final Map<String, dynamic> subLevel;
+  final Map<String, dynamic> character;
 
-  GamePage({required this.level, required this.subLevel});
+  GamePage({
+    required this.level,
+    required this.subLevel,
+    required this.character,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage(
-                "assets/images/background/${level['background_image']}"),
-            fit: BoxFit.cover,
+      body: Stack(
+        children: [
+          GameWidget(
+            game: PlayerGame(
+              levelBackground: level['background_image'],
+              characterData: character,
+            ),
           ),
-        ),
-        child: Center(
-          child: Text(
-            "Sub-Level: ${subLevel['name']}",
-            style: TextStyle(
-                color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
-          ),
-        ),
+        ],
       ),
     );
   }
