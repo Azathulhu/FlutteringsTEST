@@ -1,9 +1,7 @@
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
-import 'package:flutter/material.dart';
-import 'player_component.dart';
 import '../services/input_service.dart';
-import 'controls_overlay.dart';
+import 'player_component.dart';
 
 class PlayerGame extends FlameGame {
   final String levelBackground;
@@ -20,21 +18,20 @@ class PlayerGame extends FlameGame {
   Future<void> onLoad() async {
     await super.onLoad();
 
-    // Load background sprite
+    // Background
     final bg = SpriteComponent()
       ..sprite = await loadSprite('background/$levelBackground')
       ..size = size;
     add(bg);
 
-    // Add player
+    // Player
     final player = PlayerComponent(
       characterData: characterData,
       inputService: inputService,
-    )
-      ..position = Vector2(size.x / 2, size.y / 2);
+    )..position = Vector2(size.x / 2, size.y / 2);
     add(player);
 
-    // Show controls overlay
+    // Add overlay
     overlays.add('ControlsOverlay');
   }
 }
