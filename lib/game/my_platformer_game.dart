@@ -1,57 +1,37 @@
-import 'package:flame/components.dart';
 import 'package:flame/game.dart';
+import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'player_component.dart';
 import 'platform_component.dart';
 
-class MyPlatformerGame extends FlameGame with HasTappables, HasDraggables {
-  final String backgroundImageAsset;
-  final Map<String, dynamic> characterConfig;
-
+class MyPlatformerGame extends FlameGame with HasKeyboardHandlerComponents {
+  final Map<String, dynamic> characterData;
   late PlayerComponent player;
-  late SpriteComponent background;
 
-  MyPlatformerGame({
-    required this.backgroundImageAsset,
-    required this.characterConfig,
-  });
+  MyPlatformerGame({required this.characterData});
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
 
-    // load background sprite (we assume preloaded, but load if needed)
-    final bgImageName = backgroundImageAsset.split('/').last;
-    final bg = await images.load(bgImageName);
-    background = SpriteComponent()
-      ..sprite = Sprite(bg)
-      ..size = size
-      ..position = Vector2.zero()
-      ..anchor = Anchor.topLeft;
-    add(background);
+    // Add background (placeholder, configurable via Supabase)
+    add(RectangleComponent(
+      size: size,
+      paint: Paint()..color = Colors.greenAccent,
+    ));
 
-    // Add a simple ground platform across bottom
-    final ground = PlatformComponent(
-      position: Vector2(0, size.y - 72),
-      size: Vector2(size.x, 72),
-    );
-    add(ground);
+    // Add a simple platform
+    add(PlatformComponent(
+      position: Vector2(0, size.y - 50),
+      size: Vector2(size.x, 50),
+    ));
 
-    // Add a few floating platforms for testing
-    add(PlatformComponent(position: Vector2(50, size.y - 200), size: Vector2(150, 24)));
-    add(PlatformComponent(position: Vector2(300, size.y - 300), size: Vector2(180, 24)));
-
-    // Add player near top-left
-    player = PlayerComponent(
-      position: Vector2(100, size.y - 400),
-      size: Vector2(48, 64),
-      speed: characterConfig['speed'] as double,
-      jumpStrength: characterConfig['jump_strength'] as double,
-      maxHealth: characterConfig['max_health'] as int,
-      spritePath: characterConfig['sprite_path'] as String,
-    );
-
+    // Add player
+    player = PlayerComponent(characterData: characterData);
     add(player);
-    camera.followComponent(player, worldBounds: Rect.fromLTWH(0, 0, size.x, size.y));
+
+    // Set camera to follow player
+    camera.followComponent(player,
+        worldBounds: Rect.fromLTWH(0, 0, size.x * 2, size.y));
   }
 }
