@@ -1,34 +1,30 @@
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
-import '../services/input_service.dart';
 import 'player_component.dart';
 
-class PlayerGame extends FlameGame {
-  final String levelBackground;
-  final Map<String, dynamic> characterData;
-  final InputService inputService;
+class PlayerGame extends FlameGame with HasKeyboardHandlerComponents {
+  final String backgroundImage;
+  final Map<String, dynamic> character;
 
-  PlayerGame({
-    required this.levelBackground,
-    required this.characterData,
-    required this.inputService,
-  });
+  late PlayerComponent player;
+
+  PlayerGame({required this.backgroundImage, required this.character});
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
 
     final bg = SpriteComponent()
-      ..sprite = await loadSprite('background/$levelBackground')
-      ..size = size;
+      ..sprite = await loadSprite('background/$backgroundImage')
+      ..size = size
+      ..position = Vector2.zero();
     add(bg);
 
-    final player = PlayerComponent(
-      characterData: characterData,
-      inputService: inputService,
-    )..position = Vector2(size.x / 2, size.y / 2);
+    player = PlayerComponent(
+      position: Vector2(size.x / 2, 100),
+      size: Vector2(64, 64),
+    );
+    player.sprite = await loadSprite('character_sprites/${character['sprite_path']}');
     add(player);
-
-    overlays.add('ControlsOverlay');
   }
 }
