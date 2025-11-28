@@ -32,6 +32,12 @@ class PlayerGame extends FlameGame with HasTappables, HasDraggables, HasCollisio
 
     // Add UI buttons
     overlays.add('ControlsOverlay');
+
+    overlays.addEntry(
+      'ControlsOverlay',
+      (context, game) => ControlsOverlay(inputService: inputService),
+    );
+
   }
 
   @override
