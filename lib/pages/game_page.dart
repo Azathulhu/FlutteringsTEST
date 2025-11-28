@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'dart:async';
+import 'dart:math';
 
 class GamePage extends StatefulWidget {
   final Map<String, dynamic> level;
@@ -13,32 +14,43 @@ class GamePage extends StatefulWidget {
   State<GamePage> createState() => _GamePageState();
 }
 
-class _GamePageState extends State<GamePage> {
+class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin {
   final supabase = Supabase.instance.client;
-
-  // Character properties
   String characterSprite = '';
-  double characterX = 0.0; // Horizontal position (0 = center)
-  double characterY = 0.0; // Vertical position (we’ll set fixed platform)
   double characterWidth = 80;
   double characterHeight = 80;
 
-  // Platform properties
-  double platformY = 500;
+  // Character state
+  double charX = 0;
+  double charY = 0;
+  double charVy = 0;
+
+  // Game constants
+  double gravity = 0.8;
+  double jumpStrength = 20;
+  double horizontalSpeedMultiplier = 2.0;
+
+  // Platforms
+  List<Platform> platforms = [];
+  double platformWidth = 120;
   double platformHeight = 20;
 
+  late AnimationController _controller;
   StreamSubscription? _accelerometerSubscription;
+  Random random = Random();
+
+  double screenWidth = 0;
+  double screenHeight = 0;
 
   @override
   void initState() {
     super.initState();
     loadSelectedCharacter();
-    characterY = platformY - characterHeight; // Stand on platform
-    startTiltListener();
   }
 
   @override
   void dispose() {
+    _controller.dispose();
     _accelerometerSubscription?.cancel();
     super.dispose();
   }
@@ -64,32 +76,81 @@ class _GamePageState extends State<GamePage> {
       if (charData != null) {
         setState(() {
           characterSprite = charData['sprite_path'];
+          jumpStrength = charData['jump_strength']?.toDouble() ?? 20;
         });
+        startGame();
       }
     }
   }
 
-  void startTiltListener() {
+  void startGame() {
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 16),
+    )..addListener(updateGame);
+
+    _controller.repeat();
+
+    // Start accelerometer listener
     _accelerometerSubscription =
         accelerometerEvents.listen((AccelerometerEvent event) {
-      // event.x is the tilt: negative = tilt left, positive = tilt right
       setState(() {
-        // Adjust sensitivity (you can tweak multiplier)
-        characterX += event.x * -2;
-
-        // Clamp character within screen bounds
-        final screenWidth = MediaQuery.of(context).size.width;
-        characterX = characterX.clamp(
-            -screenWidth / 2 + characterWidth / 2,
+        charX += -event.x * horizontalSpeedMultiplier;
+        // Clamp horizontal position
+        charX = charX.clamp(-screenWidth / 2 + characterWidth / 2,
             screenWidth / 2 - characterWidth / 2);
       });
     });
   }
 
+  void updateGame() {
+    setState(() {
+      charVy += gravity;
+      charY += charVy;
+
+      // Platform collision
+      for (var platform in platforms) {
+        if (charY + characterHeight >= platform.y &&
+            charY + characterHeight <= platform.y + platformHeight &&
+            charX + characterWidth / 2 >= platform.x &&
+            charX - characterWidth / 2 <= platform.x + platform.width &&
+            charVy > 0) {
+          charY = platform.y - characterHeight;
+          charVy = -jumpStrength; // Auto jump
+        }
+      }
+
+      // Scroll screen up
+      if (charY < screenHeight / 2) {
+        double offset = screenHeight / 2 - charY;
+        charY = screenHeight / 2;
+        for (var platform in platforms) {
+          platform.y += offset;
+        }
+      }
+
+      // Remove platforms below screen
+      platforms.removeWhere((p) => p.y > screenHeight);
+
+      // Generate new platforms
+      while (platforms.length < 10) {
+        double lastY = platforms.isEmpty
+            ? screenHeight - 50
+            : platforms.map((p) => p.y).reduce(min);
+        double newY = lastY - random.nextInt(150) - 80;
+        double newX = random.nextDouble() * (screenWidth - platformWidth);
+        platforms.add(Platform(x: newX, y: newY, width: platformWidth));
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
+    screenWidth = MediaQuery.of(context).size.width;
+    screenHeight = MediaQuery.of(context).size.height;
+
+    // Initial character position
+    if (charY == 0) charY = screenHeight - 200;
 
     return Scaffold(
       body: Stack(
@@ -105,22 +166,24 @@ class _GamePageState extends State<GamePage> {
             ),
           ),
 
-          // Platform
-          Positioned(
-            bottom: screenHeight - platformY,
-            left: 0,
-            child: Container(
-              width: screenWidth,
-              height: platformHeight,
-              color: Colors.brown,
-            ),
-          ),
+          // Platforms
+          ...platforms.map((p) {
+            return Positioned(
+              bottom: screenHeight - p.y,
+              left: p.x,
+              child: Container(
+                width: p.width,
+                height: platformHeight,
+                color: Colors.brown,
+              ),
+            );
+          }).toList(),
 
           // Character
           if (characterSprite.isNotEmpty)
             Positioned(
-              bottom: screenHeight - characterY - characterHeight,
-              left: screenWidth / 2 + characterX - characterWidth / 2,
+              bottom: screenHeight - charY - characterHeight,
+              left: screenWidth / 2 + charX - characterWidth / 2,
               child: SizedBox(
                 width: characterWidth,
                 height: characterHeight,
@@ -136,33 +199,10 @@ class _GamePageState extends State<GamePage> {
   }
 }
 
-/*import 'package:flutter/material.dart';
+class Platform {
+  double x;
+  double y;
+  double width;
 
-class GamePage extends StatelessWidget {
-  final Map<String, dynamic> level;
-  final Map<String, dynamic> subLevel;
-
-  GamePage({required this.level, required this.subLevel});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage(
-                "assets/images/background/${level['background_image']}"),
-            fit: BoxFit.cover,
-          ),
-        ),
-        child: Center(
-          child: Text(
-            "Sub-Level: ${subLevel['name']}",
-            style: TextStyle(
-                color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
-          ),
-        ),
-      ),
-    );
-  }
-}*/
+  Platform({required this.x, required this.y, required this.width});
+}
