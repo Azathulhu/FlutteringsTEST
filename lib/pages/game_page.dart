@@ -46,6 +46,24 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   void initState() {
     super.initState();
     loadSelectedCharacter();
+
+     WidgetsBinding.instance.addPostFrameCallback((_) {
+      screenWidth = MediaQuery.of(context).size.width;
+      screenHeight = MediaQuery.of(context).size.height;
+  
+      // Start with a platform slightly above the bottom
+      platforms.add(
+        Platform(
+          x: screenWidth / 2 - platformWidth / 2,
+          y: screenHeight - 100, // 100 pixels from bottom
+          width: platformWidth,
+        ),
+      );
+  
+      // Set character right above this starting platform
+      charX = 0; // Center horizontally
+      charY = platforms[0].y - characterHeight; // Stand on platform
+    });
   }
 
   @override
