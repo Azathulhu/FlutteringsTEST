@@ -3,41 +3,38 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'player_component.dart';
 import '../services/input_service.dart';
+import 'controls_overlay.dart';
 
-class PlayerGame extends BaseGame with HasWidgetsOverlay {
+class PlayerGame extends FlameGame {
   final String levelBackground;
   final Map<String, dynamic> characterData;
+  final InputService inputService;
 
-  late PlayerComponent player;
-  late InputService inputService;
-
-  PlayerGame({required this.levelBackground, required this.characterData}) {
-    inputService = InputService();
-  }
+  PlayerGame({
+    required this.levelBackground,
+    required this.characterData,
+    required this.inputService,
+  });
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
 
-    // Background
+    // Load background sprite
     final bg = SpriteComponent()
       ..sprite = await loadSprite('background/$levelBackground')
       ..size = size;
     add(bg);
 
-    // Player
-    player = PlayerComponent(characterData: characterData, inputService: inputService)
-      ..x = size.x / 2
-      ..y = 100;
+    // Add player
+    final player = PlayerComponent(
+      characterData: characterData,
+      inputService: inputService,
+    )
+      ..position = Vector2(size.x / 2, size.y / 2);
     add(player);
 
-    // Add controls overlay
+    // Show controls overlay
     overlays.add('ControlsOverlay');
-
-    overlays.addEntry(
-      'ControlsOverlay',
-      (context, game) => ControlsOverlay(inputService: inputService),
-    );
-
   }
 }
