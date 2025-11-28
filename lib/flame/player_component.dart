@@ -1,54 +1,46 @@
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
-import '../services/input_service.dart';
-import 'player_game.dart';
+import 'package:flame/input.dart';
 
-class PlayerComponent extends SpriteComponent with HasGameRef<PlayerGame> {
-  final Map<String, dynamic> characterData;
-  final InputService inputService;
-
-  Vector2 velocity = Vector2.zero();
+class PlayerComponent extends SpriteComponent
+    with HasGameRef<PlayerGame>, KeyboardHandler {
   double speed = 200;
-  double jumpForce = -400;
+  double jumpSpeed = -400;
   double gravity = 800;
   bool onGround = false;
+  Vector2 velocity = Vector2.zero();
 
-  PlayerComponent({
-    required this.characterData,
-    required this.inputService,
-  }) : super(size: Vector2(64, 64));
-
-  @override
-  Future<void> onLoad() async {
-    sprite = await gameRef.loadSprite('character_sprites/${characterData['sprite_path']}');
+  PlayerComponent({required Vector2 position, required Vector2 size}) {
+    this.position = position;
+    this.size = size;
   }
 
   @override
   void update(double dt) {
     super.update(dt);
 
-    if (inputService.moveLeft) {
-      velocity.x = -speed;
-    } else if (inputService.moveRight) {
-      velocity.x = speed;
-    } else {
-      velocity.x = 0;
-    }
-
     velocity.y += gravity * dt;
-
-    if (inputService.jump && onGround) {
-      velocity.y = jumpForce;
-      onGround = false;
-    }
-
     position += velocity * dt;
 
-    final groundY = gameRef.size.y - 50;
-    if (position.y + size.y >= groundY) {
-      position.y = groundY - size.y;
+    if (position.y + size.y >= gameRef.size.y - 50) {
+      position.y = gameRef.size.y - 50 - size.y;
       velocity.y = 0;
       onGround = true;
+    }
+  }
+
+  void moveLeft(double dt) {
+    position.x -= speed * dt;
+  }
+
+  void moveRight(double dt) {
+    position.x += speed * dt;
+  }
+
+  void jump() {
+    if (onGround) {
+      velocity.y = jumpSpeed;
+      onGround = false;
     }
   }
 }
