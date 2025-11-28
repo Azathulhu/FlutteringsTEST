@@ -1,31 +1,43 @@
 import 'package:flutter/material.dart';
+import '../services/level_service.dart';
 import 'game_page.dart';
 
 class SubLevelSelectionPage extends StatefulWidget {
   final Map<String, dynamic> level;
-  final Map<String, dynamic> selectedCharacter;
-  final List<Map<String, dynamic>> subLevels;
-
-  SubLevelSelectionPage({
-    required this.level,
-    required this.selectedCharacter,
-    required this.subLevels,
-  });
+  SubLevelSelectionPage({required this.level});
 
   @override
   State<SubLevelSelectionPage> createState() => _SubLevelSelectionPageState();
 }
 
 class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
+  final PageController _controller = PageController(viewportFraction: 0.6);
+  final LevelService _levelService = LevelService();
+
   int currentPage = 0;
-  final PageController _controller = PageController(viewportFraction: 0.7);
+  List<Map<String, dynamic>> subLevels = [];
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadSubLevels();
+  }
+
+  Future<void> loadSubLevels() async {
+    final data = await _levelService.loadSubLevels(widget.level['id']);
+    setState(() {
+      subLevels = data;
+      loading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.subLevels.isEmpty) return Center(child: Text("No SubLevels"));
+    if (loading) return Center(child: CircularProgressIndicator());
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.level['name'])),
+      appBar: AppBar(title: Text("Select Sub-Level")),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -33,44 +45,44 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
             height: 250,
             child: PageView.builder(
               controller: _controller,
-              itemCount: widget.subLevels.length,
+              itemCount: subLevels.length,
               onPageChanged: (i) => setState(() => currentPage = i),
               itemBuilder: (context, index) {
-                final sub = widget.subLevels[index];
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => GamePage(
-                          level: widget.level,
-                          subLevel: sub,
-                          character: widget.selectedCharacter,
+                final sub = subLevels[index];
+
+                return Opacity(
+                  opacity: sub['is_unlocked'] ? 1 : 0.5,
+                  child: GestureDetector(
+                    onTap: sub['is_unlocked']
+                        ? () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => GamePage(
+                                  level: widget.level,
+                                  subLevel: sub,
+                                ),
+                              ),
+                            );
+                          }
+                        : null,
+                    child: Container(
+                      margin: EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.blueGrey,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: sub['is_unlocked'] ? Colors.white : Colors.red,
+                          width: 3,
                         ),
                       ),
-                    );
-                  },
-                  child: Container(
-                    margin: EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white, width: 3),
-                      image: DecorationImage(
-                        image: AssetImage(
-                            "assets/images/background/${sub['background_image']}"),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        sub['name'],
-                        style: TextStyle(
-                          fontSize: 24,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          shadows: [
-                            Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 4),
-                          ],
+                      child: Center(
+                        child: Text(
+                          sub['name'],
+                          style: TextStyle(
+                              fontSize: 24,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
