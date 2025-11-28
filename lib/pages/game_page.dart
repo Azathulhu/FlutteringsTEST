@@ -121,21 +121,25 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
   void updateGame() {
     setState(() {
+      // Save previous Y to check top collision
+      double prevCharY = charY;
+
+      // Apply physics
       charVy += gravity;
       charY += charVy;
 
-      // Platform collision with single bounce
+      // Check collisions with platforms (top only)
       for (var platform in platforms) {
-        if (!platform.hasBounced &&
-            charY + characterHeight >= platform.y &&
-            charY + characterHeight <= platform.y + platformHeight &&
+        bool feetWereAbove = prevCharY + characterHeight <= platform.y;
+        bool feetNowBelow = charY + characterHeight >= platform.y;
+        bool horizontallyOverlapping =
             charX + characterWidth / 2 >= platform.x &&
-            charX - characterWidth / 2 <= platform.x + platform.width &&
-            charVy > 0) {
-          charY = platform.y - characterHeight;
-          charVy = -jumpStrength; // Bounce
-          platform.hasBounced = true;
-          break;
+            charX - characterWidth / 2 <= platform.x + platform.width;
+
+        if (feetWereAbove && feetNowBelow && horizontallyOverlapping && charVy > 0) {
+          charY = platform.y - characterHeight; // place on top
+          charVy = -jumpStrength; // bounce
+          break; // only bounce on one platform per frame
         }
       }
 
@@ -219,7 +223,6 @@ class Platform {
   double x;
   double y;
   double width;
-  bool hasBounced = false;
 
   Platform({required this.x, required this.y, required this.width});
 }
