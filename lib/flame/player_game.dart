@@ -1,11 +1,10 @@
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
-import 'package:flame/input.dart';
 import 'package:flutter/material.dart';
 import 'player_component.dart';
 import '../services/input_service.dart';
 
-class PlayerGame extends FlameGame with HasTappables, HasDraggables, HasCollisionDetection {
+class PlayerGame extends BaseGame with HasWidgetsOverlay {
   final String levelBackground;
   final Map<String, dynamic> characterData;
 
@@ -21,27 +20,18 @@ class PlayerGame extends FlameGame with HasTappables, HasDraggables, HasCollisio
     await super.onLoad();
 
     // Background
-    add(SpriteComponent()
+    final bg = SpriteComponent()
       ..sprite = await loadSprite('background/$levelBackground')
-      ..size = size);
+      ..size = size;
+    add(bg);
 
     // Player
     player = PlayerComponent(characterData: characterData, inputService: inputService)
-      ..position = Vector2(size.x / 2, 100);
+      ..x = size.x / 2
+      ..y = 100;
     add(player);
 
-    // Add UI buttons
+    // Add controls overlay
     overlays.add('ControlsOverlay');
-
-    overlays.addEntry(
-      'ControlsOverlay',
-      (context, game) => ControlsOverlay(inputService: inputService),
-    );
-
-  }
-
-  @override
-  void update(double dt) {
-    super.update(dt);
   }
 }
