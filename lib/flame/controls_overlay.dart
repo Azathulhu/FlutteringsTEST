@@ -10,7 +10,6 @@ class ControlsOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Left / Right buttons
         Positioned(
           left: 20,
           bottom: 20,
@@ -32,7 +31,6 @@ class ControlsOverlay extends StatelessWidget {
             ],
           ),
         ),
-        // Jump button
         Positioned(
           right: 20,
           bottom: 20,
