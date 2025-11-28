@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'game_page.dart';
 
-class SubLevelSelectionPage extends StatelessWidget {
+class SubLevelSelectionPage extends StatefulWidget {
   final Map<String, dynamic> level;
   final Map<String, dynamic> selectedCharacter;
   final List<Map<String, dynamic>> subLevels;
@@ -13,49 +13,73 @@ class SubLevelSelectionPage extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Select SubLevel')),
-      body: PageView.builder(
-        itemCount: subLevels.length,
-        controller: PageController(viewportFraction: 0.7),
-        itemBuilder: (context, index) {
-          final subLevel = subLevels[index];
-          final isUnlocked = subLevel['is_unlocked'] ?? false;
+  State<SubLevelSelectionPage> createState() => _SubLevelSelectionPageState();
+}
 
-          return GestureDetector(
-            onTap: isUnlocked
-                ? () {
+class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
+  int currentPage = 0;
+  final PageController _controller = PageController(viewportFraction: 0.7);
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.subLevels.isEmpty) return Center(child: Text("No SubLevels"));
+
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.level['name'])),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            height: 250,
+            child: PageView.builder(
+              controller: _controller,
+              itemCount: widget.subLevels.length,
+              onPageChanged: (i) => setState(() => currentPage = i),
+              itemBuilder: (context, index) {
+                final sub = widget.subLevels[index];
+                return GestureDetector(
+                  onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => GamePage(
-                          level: level,
-                          subLevel: subLevel,
-                          character: selectedCharacter, // ✅ required!
+                          level: widget.level,
+                          subLevel: sub,
+                          character: widget.selectedCharacter,
                         ),
                       ),
                     );
-                  }
-                : null,
-            child: Container(
-              margin: EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                border: Border.all(color: isUnlocked ? Colors.green : Colors.red),
-                borderRadius: BorderRadius.circular(15),
-                color: Colors.blueGrey,
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(subLevel['name'], style: TextStyle(fontSize: 24, color: Colors.white)),
-                  SizedBox(height: 10),
-                  Text(isUnlocked ? 'Unlocked' : 'Locked', style: TextStyle(color: Colors.white70)),
-                ],
-              ),
+                  },
+                  child: Container(
+                    margin: EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white, width: 3),
+                      image: DecorationImage(
+                        image: AssetImage(
+                            "assets/images/background/${sub['background_image']}"),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        sub['name'],
+                        style: TextStyle(
+                          fontSize: 24,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          shadows: [
+                            Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 4),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
