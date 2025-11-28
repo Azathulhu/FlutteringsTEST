@@ -1,22 +1,11 @@
 import 'package:flutter/material.dart';
 
-class InputService extends ChangeNotifier {
+class InputService {
   bool moveLeft = false;
   bool moveRight = false;
   bool jump = false;
 
-  void setMoveLeft(bool value) {
-    moveLeft = value;
-    notifyListeners();
-  }
-
-  void setMoveRight(bool value) {
-    moveRight = value;
-    notifyListeners();
-  }
-
-  void setJump(bool value) {
-    jump = value;
-    notifyListeners();
-  }
+  void setMoveLeft(bool value) => moveLeft = value;
+  void setMoveRight(bool value) => moveRight = value;
+  void setJump(bool value) => jump = value;
 }
