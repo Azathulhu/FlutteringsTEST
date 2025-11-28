@@ -58,13 +58,13 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   Future<void> loadSelectedCharacter() async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
-
+  
     final meta = await supabase
         .from('users_meta')
         .select()
         .eq('user_id', user.id)
         .maybeSingle();
-
+  
     if (meta != null && meta['selected_character_id'] != null) {
       final characterId = meta['selected_character_id'];
       final charData = await supabase
@@ -72,36 +72,36 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
           .select()
           .eq('id', characterId)
           .maybeSingle();
-
+  
       if (charData != null) {
         setState(() {
           characterSprite = charData['sprite_path'];
           jumpStrength = charData['jump_strength']?.toDouble() ?? 20;
         });
-
-        // Start game after frame is rendered
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          screenWidth = MediaQuery.of(context).size.width;
-          screenHeight = MediaQuery.of(context).size.height;
-
-          // First platform directly under the character
-          platforms.add(
-            Platform(
-              x: screenWidth / 2 - platformWidth / 2,
-              y: screenHeight - 150, // 150 pixels from bottom
-              width: platformWidth,
-            ),
-          );
-
-          // Character starts on top of the first platform
-          charX = 0;
-          charY = platforms[0].y - characterHeight;
-
-          startGame();
-        });
+  
+        // Wait for screen dimensions first
+        screenWidth = MediaQuery.of(context).size.width;
+        screenHeight = MediaQuery.of(context).size.height;
+  
+        // **Add starting platform synchronously**
+        platforms.add(
+          Platform(
+            x: screenWidth / 2 - platformWidth / 2,
+            y: screenHeight - 150, // 150 px from bottom
+            width: platformWidth,
+          ),
+        );
+  
+        // Character starts on top of the first platform
+        charX = 0;
+        charY = platforms[0].y - characterHeight;
+  
+        // **Start game loop now**
+        startGame();
       }
     }
   }
+
 
   void startGame() {
     _controller = AnimationController(
