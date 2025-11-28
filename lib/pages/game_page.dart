@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flame/game.dart';
 import '../flame/player_game.dart';
-import '../flame/controls_overlay.dart';
-import '../services/input_service.dart';
 
 class GamePage extends StatelessWidget {
   final Map<String, dynamic> level;
@@ -17,19 +14,11 @@ class GamePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final inputService = InputService();
-
-    final game = PlayerGame(
-      levelBackground: subLevel['background_image'],
-      characterData: character,
-      inputService: inputService,
-    );
-
-    return GameWidget(
-      game: game,
-      overlayBuilderMap: {
-        'ControlsOverlay': (_, game) => ControlsOverlay(inputService: inputService),
-      },
+    return Scaffold(
+      body: PlayerGameWidget(
+        levelBackground: subLevel['background_image'],
+        character: character,
+      ),
     );
   }
 }
