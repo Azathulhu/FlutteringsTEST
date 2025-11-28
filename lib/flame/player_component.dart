@@ -1,6 +1,7 @@
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import '../services/input_service.dart';
+import 'player_game.dart';
 
 class PlayerComponent extends SpriteComponent with HasGameRef<PlayerGame> {
   final Map<String, dynamic> characterData;
@@ -15,7 +16,7 @@ class PlayerComponent extends SpriteComponent with HasGameRef<PlayerGame> {
   PlayerComponent({
     required this.characterData,
     required this.inputService,
-  }) : super(size: Vector2(64, 64));  // adjust as needed
+  }) : super(size: Vector2(64, 64));
 
   @override
   Future<void> onLoad() async {
@@ -26,7 +27,7 @@ class PlayerComponent extends SpriteComponent with HasGameRef<PlayerGame> {
   void update(double dt) {
     super.update(dt);
 
-    // horizontal
+    // Horizontal movement
     if (inputService.moveLeft) {
       velocity.x = -speed;
     } else if (inputService.moveRight) {
@@ -35,10 +36,10 @@ class PlayerComponent extends SpriteComponent with HasGameRef<PlayerGame> {
       velocity.x = 0;
     }
 
-    // gravity
+    // Gravity
     velocity.y += gravity * dt;
 
-    // jump
+    // Jump
     if (inputService.jump && onGround) {
       velocity.y = jumpForce;
       onGround = false;
@@ -46,8 +47,8 @@ class PlayerComponent extends SpriteComponent with HasGameRef<PlayerGame> {
 
     position += velocity * dt;
 
-    // simple ground collision
-    final groundY = gameRef.size.y - 50;  // adjust ground offset
+    // Ground collision
+    final groundY = gameRef.size.y - 50;
     if (position.y + size.y >= groundY) {
       position.y = groundY - size.y;
       velocity.y = 0;
