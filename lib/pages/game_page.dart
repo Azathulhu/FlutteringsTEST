@@ -46,24 +46,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   void initState() {
     super.initState();
     loadSelectedCharacter();
-
-     WidgetsBinding.instance.addPostFrameCallback((_) {
-      screenWidth = MediaQuery.of(context).size.width;
-      screenHeight = MediaQuery.of(context).size.height;
-  
-      // Start with a platform slightly above the bottom
-      platforms.add(
-        Platform(
-          x: screenWidth / 2 - platformWidth / 2,
-          y: screenHeight - 100, // 100 pixels from bottom
-          width: platformWidth,
-        ),
-      );
-  
-      // Set character right above this starting platform
-      charX = 0; // Center horizontally
-      charY = platforms[0].y - characterHeight; // Stand on platform
-    });
   }
 
   @override
@@ -96,7 +78,27 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
           characterSprite = charData['sprite_path'];
           jumpStrength = charData['jump_strength']?.toDouble() ?? 20;
         });
-        startGame();
+
+        // Start game after frame is rendered
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          screenWidth = MediaQuery.of(context).size.width;
+          screenHeight = MediaQuery.of(context).size.height;
+
+          // First platform directly under the character
+          platforms.add(
+            Platform(
+              x: screenWidth / 2 - platformWidth / 2,
+              y: screenHeight - 150, // 150 pixels from bottom
+              width: platformWidth,
+            ),
+          );
+
+          // Character starts on top of the first platform
+          charX = 0;
+          charY = platforms[0].y - characterHeight;
+
+          startGame();
+        });
       }
     }
   }
@@ -114,7 +116,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         accelerometerEvents.listen((AccelerometerEvent event) {
       setState(() {
         charX += -event.x * horizontalSpeedMultiplier;
-        // Clamp horizontal position
         charX = charX.clamp(-screenWidth / 2 + characterWidth / 2,
             screenWidth / 2 - characterWidth / 2);
       });
@@ -126,15 +127,18 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       charVy += gravity;
       charY += charVy;
 
-      // Platform collision
+      // Platform collision with single bounce
       for (var platform in platforms) {
-        if (charY + characterHeight >= platform.y &&
+        if (!platform.hasBounced &&
+            charY + characterHeight >= platform.y &&
             charY + characterHeight <= platform.y + platformHeight &&
             charX + characterWidth / 2 >= platform.x &&
             charX - characterWidth / 2 <= platform.x + platform.width &&
             charVy > 0) {
           charY = platform.y - characterHeight;
           charVy = -jumpStrength; // Auto jump
+          platform.hasBounced = true; // Mark as bounced
+          break; // Only one bounce per frame
         }
       }
 
@@ -150,7 +154,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       // Remove platforms below screen
       platforms.removeWhere((p) => p.y > screenHeight);
 
-      // Generate new platforms
+      // Generate new platforms above
       while (platforms.length < 10) {
         double lastY = platforms.isEmpty
             ? screenHeight - 50
@@ -166,9 +170,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   Widget build(BuildContext context) {
     screenWidth = MediaQuery.of(context).size.width;
     screenHeight = MediaQuery.of(context).size.height;
-
-    // Initial character position
-    if (charY == 0) charY = screenHeight - 200;
 
     return Scaffold(
       body: Stack(
@@ -221,6 +222,7 @@ class Platform {
   double x;
   double y;
   double width;
+  bool hasBounced = false; // Disable further collision after bounce
 
   Platform({required this.x, required this.y, required this.width});
 }
