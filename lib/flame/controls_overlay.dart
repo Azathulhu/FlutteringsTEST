@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/input_service.dart';
-import 'package:provider/provider.dart';
 
 class ControlsOverlay extends StatelessWidget {
   final InputService inputService;
@@ -11,7 +10,7 @@ class ControlsOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Left movement
+        // Left / Right buttons
         Positioned(
           left: 20,
           bottom: 20,
