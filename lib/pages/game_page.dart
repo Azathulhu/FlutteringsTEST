@@ -1,95 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
-import 'package:flame/flame.dart';
-import 'package:flame/widgets/game_widget.dart';
+import '../game/my_platformer_game.dart';
 import '../services/character_service.dart';
-import '../game/my_platformer_game.dart'; 
 
 class GamePage extends StatefulWidget {
-  final Map<String, dynamic> level;
-  final Map<String, dynamic> subLevel;
-
-  GamePage({required this.level, required this.subLevel});
+  final int characterId;
+  const GamePage({super.key, required this.characterId});
 
   @override
   State<GamePage> createState() => _GamePageState();
 }
 
 class _GamePageState extends State<GamePage> {
-  bool loading = true;
-  Map<String, dynamic>? charConfig;
-  late final MyPlatformerGame game;
-
-  final CharacterService _characterService = CharacterService();
+  late MyPlatformerGame game;
+  Map<String, dynamic>? characterData;
 
   @override
   void initState() {
     super.initState();
-    _loadAndStart();
+    loadCharacter();
   }
 
-  Future<void> _loadAndStart() async {
-    // get selected_character_id from users_meta or pass from earlier flow
-    // For simplicity, we'll fetch from users_meta table.
-    final supabase = CharacterService().supabase;
-    final user = supabase.auth.currentUser;
-    if (user == null) {
-      // fallback: pick default character (first default)
-      final defaults = await supabase.from('characters').select().eq('is_default', true).limit(1);
-      if (defaults.isNotEmpty) {
-        final id = defaults.first['id'] as int;
-        charConfig = await _characterService.loadCharacterConfig(id);
-      }
-    } else {
-      final meta = await supabase
-          .from('users_meta')
-          .select()
-          .eq('user_id', user.id)
-          .maybeSingle();
-      if (meta != null && meta['selected_character_id'] != null) {
-        final selectedId = meta['selected_character_id'] as int;
-        charConfig = await _characterService.loadCharacterConfig(selectedId);
-      } else {
-        final defaults = await supabase.from('characters').select().eq('is_default', true).limit(1);
-        if (defaults.isNotEmpty) {
-          final id = defaults.first['id'] as int;
-          charConfig = await _characterService.loadCharacterConfig(id);
-        }
-      }
-    }
-
-    if (charConfig == null) {
-      setState(() {
-        loading = false;
-      });
-      return;
-    }
-
-    game = MyPlatformerGame(
-      backgroundImageAsset: 'assets/images/background/${widget.level['background_image']}',
-      characterConfig: charConfig!,
-    );
-
-    // Preload images (background + sprite)
-    await Flame.images.load(widget.level['background_image']);
-    await Flame.images.load(charConfig!['sprite_path']);
-
+  Future<void> loadCharacter() async {
+    final data = await CharacterService().loadCharacterById(widget.characterId);
     setState(() {
-      loading = false;
+      characterData = data;
+      game = MyPlatformerGame(characterData: data);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (characterData == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
-      body: GameWidget(
-        game: game,
-      ),
+      body: GameWidget(game: game),
     );
   }
 }
+
 
 /*import 'package:flutter/material.dart';
 
