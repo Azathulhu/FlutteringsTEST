@@ -33,5 +33,11 @@ class PlayerGame extends BaseGame with HasWidgetsOverlay {
 
     // Add controls overlay
     overlays.add('ControlsOverlay');
+
+    overlays.addEntry(
+      'ControlsOverlay',
+      (context, game) => ControlsOverlay(inputService: inputService),
+    );
+
   }
 }
