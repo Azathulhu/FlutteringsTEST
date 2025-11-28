@@ -14,159 +14,159 @@ class GamePage extends StatefulWidget {
   State<GamePage> createState() => _GamePageState();
 }
 
-class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin {
+class _GamePageState extends State<GamePage>
+    with SingleTickerProviderStateMixin {
   final supabase = Supabase.instance.client;
-  String characterSprite = '';
-  double characterWidth = 80;
-  double characterHeight = 80;
 
-  // Character state
+  String characterSprite = "";
+  double screenWidth = 0;
+  double screenHeight = 0;
+
+  // CHARACTER PROPERTIES
+  double charWidth = 70;
+  double charHeight = 70;
+
+  // WORLD POSITION (REAL physics)
   double charX = 0;
   double charY = 0;
-  double charVy = 0;
+  double velocityY = 0;
 
-  // Game constants
-  double gravity = 0.8;
-  double jumpStrength = 20;
-  double horizontalSpeedMultiplier = 2.0;
+  double gravity = 0.5;
+  double jumpStrength = 12;
+  double tiltSpeed = 2.0;
 
-  // Platforms
   List<Platform> platforms = [];
   double platformWidth = 120;
   double platformHeight = 20;
-
-  late AnimationController _controller;
-  StreamSubscription? _accelerometerSubscription;
   Random random = Random();
 
-  double screenWidth = 0;
-  double screenHeight = 0;
+  late AnimationController controller;
+  StreamSubscription? tiltListener;
 
   @override
   void initState() {
     super.initState();
-    loadSelectedCharacter();
+    loadCharacter();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
-    _accelerometerSubscription?.cancel();
+    controller.dispose();
+    tiltListener?.cancel();
     super.dispose();
   }
 
-  Future<void> loadSelectedCharacter() async {
+  Future<void> loadCharacter() async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
     final meta = await supabase
-        .from('users_meta')
+        .from("users_meta")
         .select()
-        .eq('user_id', user.id)
+        .eq("user_id", user.id)
         .maybeSingle();
 
     if (meta != null && meta['selected_character_id'] != null) {
-      final characterId = meta['selected_character_id'];
       final charData = await supabase
-          .from('characters')
+          .from("characters")
           .select()
-          .eq('id', characterId)
+          .eq("id", meta["selected_character_id"])
           .maybeSingle();
 
       if (charData != null) {
-        setState(() {
-          characterSprite = charData['sprite_path'];
-          jumpStrength = charData['jump_strength']?.toDouble() ?? 20;
-        });
-
-        screenWidth = MediaQuery.of(context).size.width;
-        screenHeight = MediaQuery.of(context).size.height;
-
-        // Add FIRST platform under character
-        final firstPlatformY = screenHeight - 150;
-        platforms.add(
-          Platform(
-            x: screenWidth / 2 - platformWidth / 2,
-            y: firstPlatformY,
-            width: platformWidth,
-          ),
-        );
-
-        // Character starts ABOVE the first platform
-        charX = 0;
-        charY = firstPlatformY - characterHeight;
-        charVy = -jumpStrength; // first bounce
-
-        startGame();
+        characterSprite = charData["sprite_path"];
+        jumpStrength = (charData["jump_strength"] ?? 12).toDouble();
       }
+
+      startEngine();
     }
   }
 
-  void startGame() {
-    _controller = AnimationController(
+  void startEngine() {
+    controller = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: 16),
-    )..addListener(updateGame);
+    )..addListener(update);
 
-    _controller.repeat();
+    controller.repeat();
 
-    _accelerometerSubscription =
-        accelerometerEvents.listen((AccelerometerEvent event) {
-      setState(() {
-        charX += -event.x * horizontalSpeedMultiplier;
-        charX = charX.clamp(
-          -screenWidth / 2 + characterWidth / 2,
-          screenWidth / 2 - characterWidth / 2,
-        );
-      });
+    tiltListener = accelerometerEvents.listen((event) {
+      charX += -event.x * tiltSpeed;
     });
   }
 
-  void updateGame() {
+  void generatePlatforms() {
+    if (platforms.isEmpty) {
+      // FIRST PLATFORM
+      double y = screenHeight - 150;
+      platforms.add(Platform(
+        x: screenWidth / 2 - platformWidth / 2,
+        y: y,
+        width: platformWidth,
+      ));
+
+      // CHARACTER START ABOVE FIRST PLATFORM
+      charX = platforms[0].x + platformWidth / 2 - charWidth / 2;
+      charY = platforms[0].y - charHeight;
+      velocityY = -jumpStrength;
+    }
+
+    while (platforms.length < 12) {
+      double highest = platforms.map((p) => p.y).reduce(min);
+      double newY = highest - (140 + random.nextInt(60));
+      double newX = random.nextDouble() * (screenWidth - platformWidth);
+
+      platforms.add(Platform(
+        x: newX,
+        y: newY,
+        width: platformWidth,
+      ));
+    }
+  }
+
+  void update() {
     setState(() {
-      double prevCharY = charY;
+      // --- PHYSICS ---
+      velocityY += gravity;
+      charY += velocityY;
 
-      // Physics
-      charVy += gravity;
-      charY += charVy;
+      // --- HORIZONTAL BOUNDS ---
+      charX = charX.clamp(
+        0.0,
+        screenWidth - charWidth,
+      );
 
-      // Platform collisions (TOP only)
-      for (var platform in platforms) {
-        bool aboveBefore = prevCharY + characterHeight <= platform.y;
-        bool belowAfter = charY + characterHeight >= platform.y;
-        bool horizontalHit = charX + characterWidth / 2 >= platform.x &&
-            charX - characterWidth / 2 <= platform.x + platform.width;
+      // --- COLLISION DETECTION ---
+      for (var p in platforms) {
+        bool falling = velocityY > 0;
+        bool abovePlatform = charY + charHeight <= p.y;
+        bool crossingPlatform = charY + charHeight + velocityY >= p.y;
 
-        if (aboveBefore && belowAfter && horizontalHit && charVy > 0) {
-          charY = platform.y - characterHeight;
-          charVy = -jumpStrength; // bounce
+        bool horizontallyAligned =
+            charX + charWidth >= p.x && charX <= p.x + p.width;
+
+        if (falling && abovePlatform && crossingPlatform && horizontallyAligned) {
+          charY = p.y - charHeight;
+          velocityY = -jumpStrength;
           break;
         }
       }
 
-      // Screen scroll
-      if (charY < screenHeight / 2) {
-        double offset = screenHeight / 2 - charY;
-        charY = screenHeight / 2;
+      // --- SCROLL WORLD WHEN GOING UP ---
+      if (charY < screenHeight * 0.4) {
+        double offset = (screenHeight * 0.4 - charY);
+        charY = screenHeight * 0.4;
 
-        for (var platform in platforms) {
-          platform.y += offset;
+        for (var p in platforms) {
+          p.y += offset;
         }
       }
 
-      // Remove platforms off-screen
+      // REMOVE OFFSCREEN PLATFORMS
       platforms.removeWhere((p) => p.y > screenHeight);
 
-      // Generate new platforms above
-      while (platforms.length < 10) {
-        double highestY = platforms.map((p) => p.y).reduce(min);
-        double newY = highestY - 120 - random.nextInt(100);
-        double newX = random.nextDouble() * (screenWidth - platformWidth);
-
-        platforms.add(
-          Platform(x: newX, y: newY, width: platformWidth),
-        );
-      }
+      // GENERATE NEW
+      generatePlatforms();
     });
   }
 
@@ -175,10 +175,12 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     screenWidth = MediaQuery.of(context).size.width;
     screenHeight = MediaQuery.of(context).size.height;
 
+    generatePlatforms();
+
     return Scaffold(
       body: Stack(
         children: [
-          // Background
+          // BACKGROUND
           Container(
             decoration: BoxDecoration(
               image: DecorationImage(
@@ -189,7 +191,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
             ),
           ),
 
-          // Platforms (TOP-based coordinates)
+          // PLATFORMS
           ...platforms.map((p) {
             return Positioned(
               top: p.y,
@@ -200,16 +202,16 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
                 color: Colors.brown,
               ),
             );
-          }).toList(),
+          }),
 
-          // Character (TOP-based coordinates)
+          // CHARACTER
           if (characterSprite.isNotEmpty)
             Positioned(
               top: charY,
-              left: screenWidth / 2 + charX - characterWidth / 2,
+              left: charX,
               child: SizedBox(
-                width: characterWidth,
-                height: characterHeight,
+                width: charWidth,
+                height: charHeight,
                 child: Image.asset(
                   "assets/character sprites/$characterSprite",
                   fit: BoxFit.contain,
