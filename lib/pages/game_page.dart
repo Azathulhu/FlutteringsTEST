@@ -140,19 +140,22 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   }
 
   void updateGame() {
-    final deltaTime = 0.016; // 60 FPS
-
     if (!paused && !gameOver) {
+      final double dt = 0.016; // 60 FPS deltaTime
+  
+      // Update enemies
       for (var enemy in enemies) {
-        enemy.update(character, deltaTime, screenWidth, screenHeight);
-
+        enemy.update(character, dt); // ✅ Only two arguments now
+  
+        // Collision check
         final hit = (character.x < enemy.x + enemy.width &&
             character.x + character.width > enemy.x &&
             character.y < enemy.y + enemy.height &&
             character.y + character.height > enemy.y);
-
+  
         if (hit) {
           enemy.dealDamage(character);
+  
           if (character.currentHealth <= 0) {
             gameOver = true;
             paused = true;
@@ -160,13 +163,14 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
           }
         }
       }
-
+  
+      // Check if character fell off screen
       if (character.y > screenHeight) {
         gameOver = true;
         paused = true;
         _showGameOverDialog();
       }
-
+  
       setState(() {});
     }
   }
