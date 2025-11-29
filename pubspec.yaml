@@ -46,4 +46,4 @@ flutter:
   assets:
     - assets/character sprites/
     - assets/images/background/
-    - assets/enemies/behaviors/
+    - assets/enemies/
