@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:sensors_plus/sensors_plus.dart';
+import 'dart:async';
 import 'character.dart';
 import 'world.dart';
 import 'platform.dart';
@@ -22,26 +24,38 @@ class _EngineWidgetState extends State<EngineWidget>
     with SingleTickerProviderStateMixin {
   late World world;
   late AnimationController controller;
+  StreamSubscription<AccelerometerEvent>? _accelSub;
+  double tiltX = 0.0;
 
   @override
   void initState() {
     super.initState();
+
+    // Initialize world
     world = World(
       screenWidth: widget.screenWidth,
       screenHeight: widget.screenHeight,
       character: widget.character,
     );
 
+    // Start animation loop
     controller = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: 16),
     )..addListener(() {
         setState(() {
-          world.update(0.0); // you can pass tiltX later
+          world.update(tiltX);
         });
       });
-
     controller.repeat();
+
+    // Listen to accelerometer
+    _accelSub = accelerometerEvents.listen((AccelerometerEvent event) {
+      setState(() {
+        // Tilt left/right = x-axis, invert to match screen
+        tiltX = -event.x;
+      });
+    });
   }
 
   @override
@@ -71,6 +85,7 @@ class _EngineWidgetState extends State<EngineWidget>
   @override
   void dispose() {
     controller.dispose();
+    _accelSub?.cancel();
     super.dispose();
   }
 }
