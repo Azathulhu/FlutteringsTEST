@@ -6,7 +6,7 @@ import 'dart:async';
 import '../game/character.dart';
 import '../game/world.dart';
 import '../game/platform.dart';
-import 'level_selection_page.dart'; // make sure this path is correct
+import 'level_selection_page.dart';
 
 class GamePage extends StatefulWidget {
   final Map<String, dynamic> level;
@@ -30,6 +30,10 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   StreamSubscription? _accelerometerSubscription;
 
   bool gameOver = false;
+  bool paused = false;
+
+  final double spawnXOffset = 0; // centered
+  final double spawnYOffset = 150; // pixels from bottom
 
   @override
   void initState() {
@@ -72,7 +76,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     // Initialize character
     character = Character(
       x: screenWidth / 2 - 40,
-      y: screenHeight - 150 - 80,
+      y: screenHeight - spawnYOffset - 80,
       width: 80,
       height: 80,
       jumpStrength: charData['jump_strength']?.toDouble() ?? 20,
@@ -87,15 +91,20 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       character: character,
     );
 
-    // Add starting platform
+    // Add starting platform at center
+    _addStartingPlatform();
+
+    startGame();
+  }
+
+  void _addStartingPlatform() {
+    world.platforms.clear();
     world.platforms.add(Platform(
       x: screenWidth / 2 - 60,
-      y: screenHeight - 150,
+      y: screenHeight - spawnYOffset,
       width: 120,
       height: 20,
     ));
-
-    startGame();
   }
 
   void startGame() {
@@ -107,38 +116,47 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     _controller.repeat();
 
     _accelerometerSubscription = accelerometerEvents.listen((event) {
-      double tiltX = -event.x;
+      if (!paused) {
+        double tiltX = -event.x;
 
-      // Update character facing direction
-      if (tiltX > 0.1) {
-        character.facingRight = true;
-      } else if (tiltX < -0.1) {
-        character.facingRight = false;
+        // Update character facing
+        if (tiltX > 0.1) {
+          character.facingRight = true;
+        } else if (tiltX < -0.1) {
+          character.facingRight = false;
+        }
+
+        // Update world only if not paused
+        world.update(tiltX);
       }
-
-      // Update world
-      world.update(tiltX);
     });
   }
 
   void updateGame() {
     setState(() {
-      // Check if character fell below screen
-      if (!gameOver && character.y > screenHeight) {
-        gameOver = true;
-        _showGameOverDialog();
+      if (!paused && !gameOver) {
+        // Check if character fell below screen
+        if (character.y > screenHeight) {
+          gameOver = true;
+          paused = true;
+          _showGameOverDialog();
+        }
       }
     });
   }
 
   Future<bool> _onWillPop() async {
+    paused = true; // pause the game immediately
     bool? result = await showDialog(
       context: context,
       builder: (_) => AlertDialog(
         title: Text("Are you sure you want to go back?"),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () {
+              paused = false; // resume if player cancels
+              Navigator.of(context).pop(false);
+            },
             child: Text("No"),
           ),
           TextButton(
@@ -148,6 +166,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         ],
       ),
     );
+
     return result ?? false;
   }
 
@@ -181,17 +200,16 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   }
 
   void _restartGame() {
-    character.y = screenHeight - 150 - 80;
-    character.vy = 0;
+    paused = false;
     gameOver = false;
 
-    world.platforms.clear();
-    world.platforms.add(Platform(
-      x: screenWidth / 2 - 60,
-      y: screenHeight - 150,
-      width: 120,
-      height: 20,
-    ));
+    // Reset character to **centered spawn**
+    character.x = screenWidth / 2 - character.width / 2;
+    character.y = screenHeight - spawnYOffset - character.height;
+    character.vy = 0;
+
+    // Reset platform
+    _addStartingPlatform();
   }
 
   @override
@@ -233,6 +251,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     );
   }
 }
+
 
 /*import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
