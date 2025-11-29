@@ -32,19 +32,20 @@ class Character {
     vy = -jumpStrength;
   }
 
-  /// Widget to render the character with high-quality scaling
+  /// Widget to render the character with pixel-perfect scaling
   Widget buildWidget() {
     return SizedBox(
       width: width,
       height: height,
       child: Image.asset(
         "assets/character sprites/$spritePath",
-        fit: BoxFit.fill, // Fill box exactly
-        filterQuality: FilterQuality.high, // Crisper rendering
+        fit: BoxFit.fill,
+        filterQuality: FilterQuality.none, // crucial for pixel art
       ),
     );
   }
 }
+
 
 /*import 'package:flutter/material.dart';
 
