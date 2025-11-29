@@ -1,0 +1,18 @@
+{
+  "type": "hunter",
+  "movement": {
+    "mode": "orbit",
+    "orbit_radius": 100,
+    "orbit_speed": 2.0,
+    "rush_speed": 300,
+    "observe_duration": 2.5
+  },
+  "attack": {
+    "mode": "rush",
+    "damage": 20
+  },
+  "collision": {
+    "pass_through_platforms": true
+  },
+  "health": 50
+}
