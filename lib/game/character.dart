@@ -11,6 +11,10 @@ class Character {
   final double horizontalSpeedMultiplier;
   final String spritePath;
 
+  // Health properties
+  int maxHealth;
+  int currentHealth;
+
   // Track facing direction: true = right, false = left
   bool facingRight = true;
 
@@ -22,7 +26,9 @@ class Character {
     required this.jumpStrength,
     required this.spritePath,
     this.horizontalSpeedMultiplier = 2.0,
-  });
+    this.maxHealth = 100,
+    int? currentHealth, // optional, defaults to maxHealth
+  }) : currentHealth = currentHealth ?? maxHealth;
 
   /// Apply horizontal movement from tilt input
   void moveHorizontally(double tiltX, double screenWidth) {
@@ -39,6 +45,17 @@ class Character {
 
   void jump() {
     vy = -jumpStrength;
+  }
+
+  /// Reduce health when taking damage
+  void takeDamage(int damage) {
+    currentHealth -= damage;
+    if (currentHealth < 0) currentHealth = 0;
+  }
+
+  /// Reset health to full
+  void resetHealth() {
+    currentHealth = maxHealth;
   }
 
   /// Widget to render the character with pixel-perfect scaling
@@ -58,7 +75,6 @@ class Character {
     );
   }
 }
-
 
 /*import 'package:flutter/material.dart';
 
