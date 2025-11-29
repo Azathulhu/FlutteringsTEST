@@ -6,6 +6,7 @@ import 'dart:async';
 import '../game/character.dart';
 import '../game/world.dart';
 import '../game/platform.dart';
+import 'level_selection_page.dart'; // make sure this path is correct
 
 class GamePage extends StatefulWidget {
   final Map<String, dynamic> level;
@@ -27,6 +28,8 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
   late AnimationController _controller;
   StreamSubscription? _accelerometerSubscription;
+
+  bool gameOver = false;
 
   @override
   void initState() {
@@ -105,46 +108,127 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
     _accelerometerSubscription = accelerometerEvents.listen((event) {
       double tiltX = -event.x;
+
+      // Update character facing direction
+      if (tiltX > 0.1) {
+        character.facingRight = true;
+      } else if (tiltX < -0.1) {
+        character.facingRight = false;
+      }
+
+      // Update world
       world.update(tiltX);
     });
   }
 
   void updateGame() {
-    setState(() {});
+    setState(() {
+      // Check if character fell below screen
+      if (!gameOver && character.y > screenHeight) {
+        gameOver = true;
+        _showGameOverDialog();
+      }
+    });
+  }
+
+  Future<bool> _onWillPop() async {
+    bool? result = await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("Are you sure you want to go back?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text("No"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text("Yes"),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  void _showGameOverDialog() {
+    showDialog(
+      barrierDismissible: false,
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("Game Over"),
+        content: Text("Do you want to try again?"),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _restartGame();
+            },
+            child: Text("Try Again"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => LevelSelectionPage()),
+              );
+            },
+            child: Text("Back"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _restartGame() {
+    character.y = screenHeight - 150 - 80;
+    character.vy = 0;
+    gameOver = false;
+
+    world.platforms.clear();
+    world.platforms.add(Platform(
+      x: screenWidth / 2 - 60,
+      y: screenHeight - 150,
+      width: 120,
+      height: 20,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Pixel-perfect Background
-          Positioned.fill(
-            child: Image.asset(
-              "assets/images/background/${widget.level['background_image']}",
-              fit: BoxFit.fill, // stretches to fill the screen
-              filterQuality: FilterQuality.none, // nearest-neighbor scaling
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        body: Stack(
+          children: [
+            // Background
+            Positioned.fill(
+              child: Image.asset(
+                "assets/images/background/${widget.level['background_image']}",
+                fit: BoxFit.fill,
+                filterQuality: FilterQuality.none,
+              ),
             ),
-          ),
 
-          // Platforms
-          ...world.platforms.map((p) => Positioned(
-                bottom: screenHeight - p.y,
-                left: p.x,
-                child: Container(
-                  width: p.width,
-                  height: p.height,
-                  color: Colors.brown,
-                ),
-              )),
+            // Platforms
+            ...world.platforms.map((p) => Positioned(
+                  bottom: screenHeight - p.y,
+                  left: p.x,
+                  child: Container(
+                    width: p.width,
+                    height: p.height,
+                    color: Colors.brown,
+                  ),
+                )),
 
-          // Character
-          Positioned(
-            bottom: screenHeight - character.y - character.height,
-            left: character.x,
-            child: character.buildWidget(),
-          ),
-        ],
+            // Character
+            Positioned(
+              bottom: screenHeight - character.y - character.height,
+              left: character.x,
+              child: character.buildWidget(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -270,14 +354,12 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     return Scaffold(
       body: Stack(
         children: [
-          // Background
-          Container(
-            decoration: BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage(
-                    "assets/images/background/${widget.level['background_image']}"),
-                fit: BoxFit.cover,
-              ),
+          // Pixel-perfect Background
+          Positioned.fill(
+            child: Image.asset(
+              "assets/images/background/${widget.level['background_image']}",
+              fit: BoxFit.fill, // stretches to fill the screen
+              filterQuality: FilterQuality.none, // nearest-neighbor scaling
             ),
           ),
 
