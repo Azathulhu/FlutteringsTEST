@@ -8,6 +8,6 @@ class Platform {
     required this.x,
     required this.y,
     required this.width,
-    this.height = 20,
+    required this.height,
   });
 }
