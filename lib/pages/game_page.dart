@@ -1,4 +1,62 @@
 import 'package:flutter/material.dart';
+import 'character.dart';
+import 'engine.dart';
+
+class GamePage extends StatefulWidget {
+  final Map<String, dynamic> level;
+  final Map<String, dynamic> subLevel;
+
+  GamePage({required this.level, required this.subLevel});
+
+  @override
+  State<GamePage> createState() => _GamePageState();
+}
+
+class _GamePageState extends State<GamePage> {
+  Character? character;
+
+  @override
+  void initState() {
+    super.initState();
+    loadCharacter();
+  }
+
+  Future<void> loadCharacter() async {
+    character = await Character.loadFromSupabase();
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final height = MediaQuery.of(context).size.height;
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          // Background
+          Container(
+            decoration: BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage(
+                    "assets/images/background/${widget.level['background_image']}"),
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          if (character != null)
+            EngineWidget(
+              character: character!,
+              screenWidth: width,
+              screenHeight: height,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/*import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'dart:async';
@@ -230,4 +288,4 @@ class Platform {
   double width;
 
   Platform({required this.x, required this.y, required this.width});
-}
+}*/
