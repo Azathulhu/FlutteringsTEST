@@ -35,12 +35,10 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   bool gameOver = false;
   bool paused = false;
 
-  final double spawnXOffset = 0;
   final double spawnYOffset = 150;
+  final Random random = Random();
 
   List<Enemy> enemies = [];
-
-  final Random random = Random();
 
   @override
   void initState() {
@@ -60,11 +58,10 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
   Future<void> loadEnemies() async {
     final enemyService = EnemyService();
-    // Spawn enemies randomly along X axis above screen
     enemies = await enemyService.loadEnemiesForSubLevel(
       widget.subLevel['id'],
       random.nextDouble() * screenWidth,
-      random.nextDouble() * screenHeight / 2,
+      -100.0, // spawn above screen
     );
   }
 
@@ -132,25 +129,23 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     _accelerometerSubscription = accelerometerEvents.listen((event) {
       if (!paused) {
         double tiltX = -event.x;
-
         if (tiltX > 0.1) {
           character.facingRight = true;
         } else if (tiltX < -0.1) {
           character.facingRight = false;
         }
-
         world.update(tiltX);
       }
     });
   }
 
   void updateGame() {
-    if (!paused && !gameOver) {
-      // Update enemies
-      for (var enemy in enemies) {
-        enemy.update(character);
+    final deltaTime = 0.016; // 60 FPS
 
-        // Collision check
+    if (!paused && !gameOver) {
+      for (var enemy in enemies) {
+        enemy.update(character, deltaTime, screenWidth, screenHeight);
+
         final hit = (character.x < enemy.x + enemy.width &&
             character.x + character.width > enemy.x &&
             character.y < enemy.y + enemy.height &&
@@ -158,7 +153,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
         if (hit) {
           enemy.dealDamage(character);
-
           if (character.currentHealth <= 0) {
             gameOver = true;
             paused = true;
@@ -167,7 +161,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         }
       }
 
-      // Check if character fell off screen
       if (character.y > screenHeight) {
         gameOver = true;
         paused = true;
@@ -283,6 +276,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     );
   }
 }
+
 
 /*import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
