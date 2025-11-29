@@ -1,27 +1,28 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
 import 'character.dart';
+import 'dart:math';
 
 class Enemy {
   double x;
   double y;
   final double width;
   final double height;
-  double vx = 0;
   double vy = 0;
+  double vx = 0;
 
   final String name;
   final String spritePath;
-
   int maxHealth;
   int currentHealth;
   int damage;
   double speed;
 
+  // JSON behavior
   final Map<String, dynamic> behavior;
 
-  bool hasSpawnedIntoScreen = false;
   bool isRushing = false;
+  double orbitAngle = 0;
+  bool hasEnteredScreen = false;
 
   Enemy({
     required this.x,
@@ -35,69 +36,50 @@ class Enemy {
     required this.damage,
     required this.speed,
     required this.behavior,
-  }) : currentHealth = currentHealth ?? maxHealth {
-    // Random roaming direction before detection
-    final rand = Random();
-    vx = (rand.nextDouble() * 2 - 1) * 40; // horizontal roam speed
-    vy = (rand.nextDouble() * 2 - 1) * 20; // vertical roam speed
-  }
+  }) : currentHealth = currentHealth ?? maxHealth;
 
-  /// Update per frame
   void update(Character character, double deltaTime, double screenWidth, double screenHeight) {
-    // === 1. FALLING FROM TOP SPAWN ===
-    if (!hasSpawnedIntoScreen) {
-      y += 80 * deltaTime; // falling speed
+    // Step 1: slowly drop from spawn above screen
+    if (!hasEnteredScreen) {
+      vy = behavior['spawn_fall_speed']?.toDouble() ?? 50; // pixels/sec
+      y += vy * deltaTime;
 
-      if (y > 0) {
-        hasSpawnedIntoScreen = true;
+      if (y + height >= 0) {
+        hasEnteredScreen = true;
+        vy = 0;
       }
       return;
     }
 
+    // Step 2: Apply Hunter AI after entering screen
     if (behavior['type'] == 'hunter') {
-      _hunterBehavior(character, deltaTime, screenWidth, screenHeight);
+      _hunterBehavior(character, deltaTime);
     }
   }
 
-  /// Eye-of-Cthulhu style logic
-  void _hunterBehavior(Character character, double dt, double sw, double sh) {
-    final detectDistance = (behavior['detect_distance'] ?? 350).toDouble();
-    final roamSpeed = (behavior['roam_speed'] ?? 50).toDouble();
-    final rushSpeed = (behavior['rush_speed'] ?? speed).toDouble();
-
+  void _hunterBehavior(Character character, double deltaTime) {
+    final detectDistance = behavior['detect_distance']?.toDouble() ?? 300;
     final dx = character.x - x;
     final dy = character.y - y;
-    final dist = sqrt(dx * dx + dy * dy);
+    final distance = sqrt(dx * dx + dy * dy);
 
-    // === 2. Enter rush mode when close ===
-    if (dist < detectDistance && !isRushing) {
-      isRushing = true;
-    }
+    if (!isRushing && distance < detectDistance) {
+      // Roam independently in a small orbit around original spawn
+      orbitAngle += (behavior['orbit_speed']?.toDouble() ?? 1.0) * deltaTime;
+      final radius = behavior['orbit_radius']?.toDouble() ?? 120;
+      x += radius * cos(orbitAngle) * deltaTime;
+      y += radius * sin(orbitAngle) * deltaTime;
 
-    if (!isRushing) {
-      // === 3. FREE ROAMING MODE ===
-      x += vx * dt;
-      y += vy * dt;
-
-      // Keep enemy in upper half of the map
-      if (y < 0) vy = roamSpeed;
-      if (y > sh * 0.45) vy = -roamSpeed;
-
-      // Bounce horizontally
-      if (x < 0) vx = roamSpeed;
-      if (x + width > sw) vx = -roamSpeed;
-
-      // Small random jitter to look alive
-      vx += (Random().nextDouble() - 0.5) * 10 * dt;
-      vy += (Random().nextDouble() - 0.5) * 10 * dt;
-    } else {
-      // === 4. RUSH MODE (attack charging) ===
+      if (orbitAngle > 2 * pi) isRushing = true;
+    } else if (isRushing) {
+      // Rush toward character
+      final rushSpeed = behavior['rush_speed']?.toDouble() ?? speed;
       final angle = atan2(dy, dx);
       vx = rushSpeed * cos(angle);
       vy = rushSpeed * sin(angle);
 
-      x += vx * dt;
-      y += vy * dt;
+      x += vx * deltaTime;
+      y += vy * deltaTime;
     }
   }
 
@@ -107,7 +89,8 @@ class Enemy {
       height: height,
       child: Image.asset(
         "assets/enemies/$spritePath",
-        fit: BoxFit.contain,
+        fit: BoxFit.fill,
+        filterQuality: FilterQuality.none,
       ),
     );
   }
