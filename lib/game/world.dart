@@ -3,13 +3,11 @@ import 'character.dart';
 import 'platform.dart';
 
 class World {
-  double screenWidth;
-  double screenHeight;
-  double gravity = 0.5;
-  double jumpStrength = 12;
-  double scrollThreshold = 0.4;
+  final double screenWidth;
+  final double screenHeight;
+  final Character character;
+  final double gravity = 0.8;
 
-  Character character;
   List<Platform> platforms = [];
   Random random = Random();
 
@@ -17,69 +15,56 @@ class World {
     required this.screenWidth,
     required this.screenHeight,
     required this.character,
-  }) {
-    _initFirstPlatform();
-  }
+  });
 
-  void _initFirstPlatform() {
-    double y = screenHeight - 150;
-    platforms.add(
-      Platform(
-        x: screenWidth / 2 - 60,
-        y: y,
-        width: 120,
-      ),
-    );
-    character.x = platforms[0].x + 120 / 2 - character.width / 2;
-    character.y = platforms[0].y - character.height;
-  }
-
-  void generatePlatforms() {
-    while (platforms.length < 12) {
-      double highest = platforms.map((p) => p.y).reduce(min);
-      double newY = highest - (140 + random.nextInt(60));
-      double newX = random.nextDouble() * (screenWidth - 120);
-      platforms.add(Platform(x: newX, y: newY, width: 120));
-    }
-  }
-
+  /// Update world per frame
+  /// [tiltX] is horizontal input from accelerometer
   void update(double tiltX) {
-    // Horizontal
-    character.x += tiltX * 2.0;
-    character.x = character.x.clamp(0.0, screenWidth - character.width);
+    // Apply horizontal movement
+    character.moveHorizontally(tiltX, screenWidth);
 
-    // Vertical
-    character.velocityY += gravity;
-    character.y += character.velocityY;
+    // Save previous Y to detect top collisions
+    double prevY = character.y;
 
-    // Collision
-    for (var p in platforms) {
-      bool falling = character.velocityY > 0;
-      bool abovePlatform = character.y + character.height <= p.y;
-      bool crossingPlatform = character.y + character.height + character.velocityY >= p.y;
-      bool horizontallyAligned =
-          character.x + character.width >= p.x && character.x <= p.x + p.width;
+    // Apply gravity
+    character.vy += gravity;
+    character.y += character.vy;
 
-      if (falling && abovePlatform && crossingPlatform && horizontallyAligned) {
-        character.y = p.y - character.height;
-        character.velocityY = -jumpStrength;
-        break;
+    // Platform collision (top only)
+    for (var platform in platforms) {
+      bool wasAbove = prevY + character.height <= platform.y;
+      bool isBelow = character.y + character.height >= platform.y;
+      bool horizontallyOverlapping =
+          character.x + character.width >= platform.x &&
+          character.x <= platform.x + platform.width;
+
+      if (wasAbove && isBelow && horizontallyOverlapping && character.vy > 0) {
+        character.y = platform.y - character.height; // place on top
+        character.jump(); // bounce
+        break; // only bounce on one platform per frame
       }
     }
 
-    // Scroll world
-    if (character.y < screenHeight * scrollThreshold) {
-      double offset = screenHeight * scrollThreshold - character.y;
-      character.y = screenHeight * scrollThreshold;
-      for (var p in platforms) {
-        p.y += offset;
+    // Scroll screen up
+    if (character.y < screenHeight / 2) {
+      double offset = screenHeight / 2 - character.y;
+      character.y = screenHeight / 2;
+      for (var platform in platforms) {
+        platform.y += offset;
       }
     }
 
-    // Remove offscreen
+    // Remove platforms below screen
     platforms.removeWhere((p) => p.y > screenHeight);
 
-    // Generate new
-    generatePlatforms();
+    // Generate new platforms above
+    while (platforms.length < 10) {
+      double lastY = platforms.isEmpty
+          ? screenHeight - 50
+          : platforms.map((p) => p.y).reduce(min);
+      double newY = lastY - random.nextInt(150) - 80;
+      double newX = random.nextDouble() * (screenWidth - 120); // default width
+      platforms.add(Platform(x: newX, y: newY, width: 120, height: 20));
+    }
   }
 }
