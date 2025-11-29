@@ -11,6 +11,9 @@ class Character {
   final double horizontalSpeedMultiplier;
   final String spritePath;
 
+  // Track facing direction: true = right, false = left
+  bool facingRight = true;
+
   Character({
     required this.x,
     required this.y,
@@ -25,9 +28,15 @@ class Character {
   void moveHorizontally(double tiltX, double screenWidth) {
     x += tiltX * horizontalSpeedMultiplier;
     x = x.clamp(0, screenWidth - width);
+
+    // Update facing direction based on tilt
+    if (tiltX > 0.1) {
+      facingRight = true;
+    } else if (tiltX < -0.1) {
+      facingRight = false;
+    }
   }
 
-  /// Bounce on a platform
   void jump() {
     vy = -jumpStrength;
   }
@@ -37,10 +46,14 @@ class Character {
     return SizedBox(
       width: width,
       height: height,
-      child: Image.asset(
-        "assets/character sprites/$spritePath",
-        fit: BoxFit.fill,
-        filterQuality: FilterQuality.none, // crucial for pixel art
+      child: Transform(
+        alignment: Alignment.center,
+        transform: Matrix4.identity()..scale(facingRight ? 1.0 : -1.0, 1.0),
+        child: Image.asset(
+          "assets/character sprites/$spritePath",
+          fit: BoxFit.fill,
+          filterQuality: FilterQuality.none,
+        ),
       ),
     );
   }
