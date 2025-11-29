@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import 'character.dart';
 
+enum EnemyState { descending, observing, rushing, cooldown }
+
 class Enemy {
   double x;
   double y;
-  final double width;
-  final double height;
   double vx = 0;
   double vy = 0;
+  final double width;
+  final double height;
 
   final String name;
   final String spritePath;
@@ -19,9 +21,12 @@ class Enemy {
 
   final Map<String, dynamic> behavior;
 
-  bool isActive = false; // true when fully spawned
-  double targetY = 100; // Y to stop falling
-  double orbitAngle = 0;
+  EnemyState state = EnemyState.descending;
+  double stateTimer = 0; // tracks how long in current state
+  final Random random = Random();
+
+  double targetX = 0;
+  double targetY = 0;
 
   Enemy({
     required this.x,
@@ -37,44 +42,103 @@ class Enemy {
     required this.behavior,
   }) : currentHealth = currentHealth ?? maxHealth;
 
-  void update(Character character, double deltaTime, double screenWidth, double screenHeight) {
-    if (!isActive) {
-      // FALLING PHASE
-      y += speed * deltaTime; // fall speed
-      if (y >= targetY) {
-        y = targetY;
-        isActive = true;
-      }
-      return;
+  void update(Character character, double dt) {
+    stateTimer += dt;
+
+    switch (state) {
+      case EnemyState.descending:
+        _descending(dt);
+        break;
+      case EnemyState.observing:
+        _observing(character, dt);
+        break;
+      case EnemyState.rushing:
+        _rushing(character, dt);
+        break;
+      case EnemyState.cooldown:
+        _cooldown(dt);
+        break;
     }
 
-    // ACTIVE PHASE (Hunter roaming)
-    if (behavior['type'] == 'hunter') {
-      _hunterBehavior(character, deltaTime);
+    // Apply velocities
+    x += vx * dt;
+    y += vy * dt;
+  }
+
+  void _descending(double dt) {
+    vy = behavior['descend_speed']?.toDouble() ?? 50.0;
+    vx = 0;
+
+    // When reaching a certain Y, switch to observing
+    if (y >= behavior['observe_height']?.toDouble() ?? 200) {
+      state = EnemyState.observing;
+      stateTimer = 0;
+      vx = 0;
+      vy = 0;
+      _setRandomObservationTarget();
     }
   }
 
-  void _hunterBehavior(Character character, double deltaTime) {
+  void _observing(Character character, double dt) {
+    // Smoothly move toward target point near character
+    final obsSpeed = behavior['observe_speed']?.toDouble() ?? 40.0;
+    final dx = targetX - x;
+    final dy = targetY - y;
+    final dist = sqrt(dx * dx + dy * dy);
+
+    if (dist > 1) {
+      vx = obsSpeed * dx / dist;
+      vy = obsSpeed * dy / dist;
+    } else {
+      vx = 0;
+      vy = 0;
+    }
+
+    // After observation duration, switch to rushing
+    if (stateTimer >= (behavior['observe_duration']?.toDouble() ?? 2.0)) {
+      state = EnemyState.rushing;
+      stateTimer = 0;
+    }
+  }
+
+  void _rushing(Character character, double dt) {
+    final rushSpeed = behavior['rush_speed']?.toDouble() ?? speed.toDouble();
     final dx = character.x - x;
     final dy = character.y - y;
-    final distance = sqrt(dx * dx + dy * dy);
-    final detectDistance = behavior['detect_distance']?.toDouble() ?? 300;
+    final dist = sqrt(dx * dx + dy * dy);
 
-    if (distance < detectDistance) {
-      // orbit
-      orbitAngle += (behavior['orbit_speed']?.toDouble() ?? 0.03) * deltaTime * 60;
-      final radius = behavior['orbit_radius']?.toDouble() ?? 120;
-      x = character.x + radius * cos(orbitAngle);
-      y = character.y + radius * sin(orbitAngle);
-    } else {
-      // roam randomly
-      x += (randomDirection() * speed * deltaTime);
-      y += (randomDirection() * speed * deltaTime);
+    if (dist > 0) {
+      vx = rushSpeed * dx / dist;
+      vy = rushSpeed * dy / dist;
+    }
+
+    // After rush duration, switch to cooldown
+    if (stateTimer >= (behavior['rush_duration']?.toDouble() ?? 1.0)) {
+      state = EnemyState.cooldown;
+      stateTimer = 0;
+      vx = 0;
+      vy = 0;
+      _setRandomObservationTarget();
     }
   }
 
-  double randomDirection() {
-    return Random().nextBool() ? 1 : -1;
+  void _cooldown(double dt) {
+    // Just hover slowly during cooldown
+    vx = 0;
+    vy = 0;
+
+    if (stateTimer >= (behavior['cooldown_duration']?.toDouble() ?? 1.0)) {
+      state = EnemyState.observing;
+      stateTimer = 0;
+      _setRandomObservationTarget();
+    }
+  }
+
+  void _setRandomObservationTarget() {
+    // Pick a point slightly offset from current x
+    final offset = behavior['observe_offset']?.toDouble() ?? 100.0;
+    targetX = x + (random.nextDouble() * 2 - 1) * offset;
+    targetY = y + (random.nextDouble() * 0.5 - 0.25) * offset; // small vertical variation
   }
 
   Widget buildWidget() {
