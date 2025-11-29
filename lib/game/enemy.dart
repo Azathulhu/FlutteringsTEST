@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'character.dart';
 import 'dart:math';
+import 'character.dart';
 
 class Enemy {
   double x;
   double y;
   final double width;
   final double height;
-  double vy = 0;
   double vx = 0;
+  double vy = 0;
 
   final String name;
   final String spritePath;
@@ -17,12 +17,11 @@ class Enemy {
   int damage;
   double speed;
 
-  // JSON behavior
   final Map<String, dynamic> behavior;
 
-  bool isRushing = false;
+  bool isActive = false; // true when fully spawned
+  double targetY = 100; // Y to stop falling
   double orbitAngle = 0;
-  bool hasEnteredScreen = false;
 
   Enemy({
     required this.x,
@@ -39,48 +38,43 @@ class Enemy {
   }) : currentHealth = currentHealth ?? maxHealth;
 
   void update(Character character, double deltaTime, double screenWidth, double screenHeight) {
-    // Step 1: slowly drop from spawn above screen
-    if (!hasEnteredScreen) {
-      vy = behavior['spawn_fall_speed']?.toDouble() ?? 50; // pixels/sec
-      y += vy * deltaTime;
-
-      if (y + height >= 0) {
-        hasEnteredScreen = true;
-        vy = 0;
+    if (!isActive) {
+      // FALLING PHASE
+      y += speed * deltaTime; // fall speed
+      if (y >= targetY) {
+        y = targetY;
+        isActive = true;
       }
       return;
     }
 
-    // Step 2: Apply Hunter AI after entering screen
+    // ACTIVE PHASE (Hunter roaming)
     if (behavior['type'] == 'hunter') {
       _hunterBehavior(character, deltaTime);
     }
   }
 
   void _hunterBehavior(Character character, double deltaTime) {
-    final detectDistance = behavior['detect_distance']?.toDouble() ?? 300;
     final dx = character.x - x;
     final dy = character.y - y;
     final distance = sqrt(dx * dx + dy * dy);
+    final detectDistance = behavior['detect_distance']?.toDouble() ?? 300;
 
-    if (!isRushing && distance < detectDistance) {
-      // Roam independently in a small orbit around original spawn
-      orbitAngle += (behavior['orbit_speed']?.toDouble() ?? 1.0) * deltaTime;
+    if (distance < detectDistance) {
+      // orbit
+      orbitAngle += (behavior['orbit_speed']?.toDouble() ?? 0.03) * deltaTime * 60;
       final radius = behavior['orbit_radius']?.toDouble() ?? 120;
-      x += radius * cos(orbitAngle) * deltaTime;
-      y += radius * sin(orbitAngle) * deltaTime;
-
-      if (orbitAngle > 2 * pi) isRushing = true;
-    } else if (isRushing) {
-      // Rush toward character
-      final rushSpeed = behavior['rush_speed']?.toDouble() ?? speed;
-      final angle = atan2(dy, dx);
-      vx = rushSpeed * cos(angle);
-      vy = rushSpeed * sin(angle);
-
-      x += vx * deltaTime;
-      y += vy * deltaTime;
+      x = character.x + radius * cos(orbitAngle);
+      y = character.y + radius * sin(orbitAngle);
+    } else {
+      // roam randomly
+      x += (randomDirection() * speed * deltaTime);
+      y += (randomDirection() * speed * deltaTime);
     }
+  }
+
+  double randomDirection() {
+    return Random().nextBool() ? 1 : -1;
   }
 
   Widget buildWidget() {
