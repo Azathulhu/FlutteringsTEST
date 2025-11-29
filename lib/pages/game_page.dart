@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'character.dart';
-import 'engine.dart';
+import '../game/character.dart';
+import '../game/engine.dart';
 
 class GamePage extends StatefulWidget {
   final Map<String, dynamic> level;
