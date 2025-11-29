@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
-import 'character.dart';
 import 'dart:math';
+import 'character.dart';
 
 class Enemy {
   double x;
   double y;
   final double width;
   final double height;
-
   double vx = 0;
   double vy = 0;
 
   final String name;
   final String spritePath;
+
   int maxHealth;
   int currentHealth;
   int damage;
@@ -20,9 +20,8 @@ class Enemy {
 
   final Map<String, dynamic> behavior;
 
+  bool hasSpawnedIntoScreen = false;
   bool isRushing = false;
-  bool hasSpawned = false; // to handle spawn from top
-  double orbitAngle = 0;
 
   Enemy({
     required this.x,
@@ -36,54 +35,69 @@ class Enemy {
     required this.damage,
     required this.speed,
     required this.behavior,
-  }) : currentHealth = currentHealth ?? maxHealth;
+  }) : currentHealth = currentHealth ?? maxHealth {
+    // Random roaming direction before detection
+    final rand = Random();
+    vx = (rand.nextDouble() * 2 - 1) * 40; // horizontal roam speed
+    vy = (rand.nextDouble() * 2 - 1) * 20; // vertical roam speed
+  }
 
-  void update(Character character, {double deltaTime = 0.016}) {
-    if (!hasSpawned) {
-      _spawnFromTop(deltaTime);
+  /// Update per frame
+  void update(Character character, double deltaTime, double screenWidth, double screenHeight) {
+    // === 1. FALLING FROM TOP SPAWN ===
+    if (!hasSpawnedIntoScreen) {
+      y += 80 * deltaTime; // falling speed
+
+      if (y > 0) {
+        hasSpawnedIntoScreen = true;
+      }
       return;
     }
 
     if (behavior['type'] == 'hunter') {
-      _hunterBehavior(character, deltaTime);
+      _hunterBehavior(character, deltaTime, screenWidth, screenHeight);
     }
   }
 
-  /// Slowly spawn from top
-  void _spawnFromTop(double deltaTime) {
-    final spawnSpeed = (behavior['spawn_speed'] ?? 50).toDouble();
-    y += spawnSpeed * deltaTime;
-    if (y > 0) hasSpawned = true; // fully entered screen
-  }
-
-  /// Hunter AI roaming and attacking
-  void _hunterBehavior(Character character, double deltaTime) {
-    final roamRadius = (behavior['roam_radius'] ?? 120).toDouble();
-    final roamSpeed = (behavior['roam_speed'] ?? 1.5).toDouble();
+  /// Eye-of-Cthulhu style logic
+  void _hunterBehavior(Character character, double dt, double sw, double sh) {
+    final detectDistance = (behavior['detect_distance'] ?? 350).toDouble();
+    final roamSpeed = (behavior['roam_speed'] ?? 50).toDouble();
     final rushSpeed = (behavior['rush_speed'] ?? speed).toDouble();
-    final detectDistance = (behavior['detect_distance'] ?? 300).toDouble();
 
     final dx = character.x - x;
     final dy = character.y - y;
-    final distance = sqrt(dx * dx + dy * dy);
+    final dist = sqrt(dx * dx + dy * dy);
 
-    if (!isRushing && distance < detectDistance) {
-      // Orbit or roam around the character
-      orbitAngle += roamSpeed * deltaTime;
-      x = character.x + roamRadius * cos(orbitAngle);
-      y = character.y + roamRadius * sin(orbitAngle);
+    // === 2. Enter rush mode when close ===
+    if (dist < detectDistance && !isRushing) {
+      isRushing = true;
+    }
 
-      if (orbitAngle > 2 * pi) {
-        isRushing = true;
-      }
-    } else if (isRushing) {
-      // Rush directly to player
+    if (!isRushing) {
+      // === 3. FREE ROAMING MODE ===
+      x += vx * dt;
+      y += vy * dt;
+
+      // Keep enemy in upper half of the map
+      if (y < 0) vy = roamSpeed;
+      if (y > sh * 0.45) vy = -roamSpeed;
+
+      // Bounce horizontally
+      if (x < 0) vx = roamSpeed;
+      if (x + width > sw) vx = -roamSpeed;
+
+      // Small random jitter to look alive
+      vx += (Random().nextDouble() - 0.5) * 10 * dt;
+      vy += (Random().nextDouble() - 0.5) * 10 * dt;
+    } else {
+      // === 4. RUSH MODE (attack charging) ===
       final angle = atan2(dy, dx);
       vx = rushSpeed * cos(angle);
       vy = rushSpeed * sin(angle);
 
-      x += vx * deltaTime;
-      y += vy * deltaTime;
+      x += vx * dt;
+      y += vy * dt;
     }
   }
 
@@ -93,8 +107,7 @@ class Enemy {
       height: height,
       child: Image.asset(
         "assets/enemies/$spritePath",
-        fit: BoxFit.fill,
-        filterQuality: FilterQuality.none,
+        fit: BoxFit.contain,
       ),
     );
   }
