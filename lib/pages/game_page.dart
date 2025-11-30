@@ -1,4 +1,332 @@
+// lib/pages/game_page.dart
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:sensors_plus/sensors_plus.dart';
+import 'dart:async';
+import 'dart:math';
+
+import '../game/character.dart';
+import '../game/world.dart';
+import '../game/platform.dart';
+import '../game/enemy.dart';
+import '../services/enemy_service.dart';
+import 'level_selection_page.dart';
+
+class GamePage extends StatefulWidget {
+  final Map<String, dynamic> level;
+  final Map<String, dynamic> subLevel;
+
+  GamePage({required this.level, required this.subLevel});
+
+  @override
+  State<GamePage> createState() => _GamePageState();
+}
+
+class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin {
+  final supabase = Supabase.instance.client;
+  late Character character;
+  late World world;
+
+  double screenWidth = 0;
+  double screenHeight = 0;
+
+  late AnimationController _controller;
+  StreamSubscription? _accelerometerSubscription;
+
+  bool gameOver = false;
+  bool paused = false;
+
+  final double spawnYOffset = 150;
+  final Random random = Random();
+
+  List<Enemy> enemies = [];
+  List<SpawnEntry> spawnPool = [];
+
+  // Spawner config
+  double nextSpawnIn = 0.0; // seconds until next spawn
+  final double minSpawnInterval = 1.0;
+  final double maxSpawnInterval = 3.0;
+  final int maxActiveEnemies = 6;
+
+  // Timing
+  late DateTime _lastTime;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await loadCharacter();
+      await prepareSpawnPool();
+      // give a small delay before first spawn so player sees descending
+      nextSpawnIn = 0.5 + random.nextDouble() * 1.0;
+      startGameLoop();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _accelerometerSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> prepareSpawnPool() async {
+    final enemyService = EnemyService();
+    // spawn coords are placeholders; clones will be placed at chosen spawn X/Y
+    spawnPool = await enemyService.loadSpawnPoolForSubLevel(
+      widget.subLevel['id'],
+      0,
+      -120,
+    );
+  }
+
+  Future<void> loadCharacter() async {
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
+
+    final meta = await supabase
+        .from('users_meta')
+        .select()
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+    if (meta == null || meta['selected_character_id'] == null) return;
+
+    final charData = await supabase
+        .from('characters')
+        .select()
+        .eq('id', meta['selected_character_id'])
+        .maybeSingle();
+
+    if (charData == null) return;
+
+    screenWidth = MediaQuery.of(context).size.width;
+    screenHeight = MediaQuery.of(context).size.height;
+
+    character = Character(
+      x: screenWidth / 2 - 40,
+      y: screenHeight - spawnYOffset - 80,
+      width: 80,
+      height: 80,
+      jumpStrength: charData['jump_strength']?.toDouble() ?? 20,
+      spritePath: charData['sprite_path'],
+      horizontalSpeedMultiplier: 2.0,
+      maxHealth: (charData['max_health'] ?? 100) as int,
+      currentHealth: (charData['current_health'] ?? 100) as int,
+    );
+
+    world = World(
+      screenWidth: screenWidth,
+      screenHeight: screenHeight,
+      character: character,
+    );
+
+    _addStartingPlatform();
+  }
+
+  void startGameLoop() {
+    _lastTime = DateTime.now();
+    _controller = AnimationController(vsync: this)..addListener(_gameTick);
+    _controller.repeat(min: 0, max: 1, period: Duration(milliseconds: 16));
+
+    _accelerometerSubscription = accelerometerEvents.listen((event) {
+      if (!paused) {
+        double tiltX = -event.x;
+        if (tiltX > 0.1) {
+          character.facingRight = true;
+        } else if (tiltX < -0.1) {
+          character.facingRight = false;
+        }
+        world.update(tiltX);
+      }
+    });
+  }
+
+  void _gameTick() {
+    final now = DateTime.now();
+    final dt = (now.difference(_lastTime).inMilliseconds / 1000.0).clamp(0.001, 0.05);
+    _lastTime = now;
+
+    if (!paused && !gameOver) {
+      _updateSpawner(dt);
+      _updateEnemies(dt);
+      _checkGameOver();
+      setState(() {});
+    }
+  }
+
+  void _updateSpawner(double dt) {
+    if (spawnPool.isEmpty) return;
+    nextSpawnIn -= dt;
+    if (nextSpawnIn <= 0 && enemies.length < maxActiveEnemies) {
+      // pick spawn X across screen, spawn Y above screen
+      final spawnX = random.nextDouble() * (screenWidth - 80);
+      final spawnY = -60.0 - random.nextDouble() * 120.0; // off-screen
+      // use EnemyService pickWeighted (we reuse load function)
+      final enemyService = EnemyService();
+      final prototype = enemyService.pickRandomFromPool(spawnPool, spawnX, spawnY);
+      if (prototype != null) {
+        enemies.add(prototype);
+      }
+      // schedule next spawn
+      nextSpawnIn = minSpawnInterval + random.nextDouble() * (maxSpawnInterval - minSpawnInterval);
+    }
+  }
+
+  void _updateEnemies(double dt) {
+    for (int i = enemies.length - 1; i >= 0; i--) {
+      final e = enemies[i];
+      e.update(character, dt); // updated signature (character, dt)
+
+      // Collision check (simple AABB)
+      final hit = (character.x < e.x + e.width &&
+          character.x + character.width > e.x &&
+          character.y < e.y + e.height &&
+          character.y + character.height > e.y);
+
+      if (hit) {
+        e.dealDamage(character);
+        // optionally remove enemy on hit or allow reuse; here we remove to avoid repeated instant hits
+        enemies.removeAt(i);
+        if (character.currentHealth <= 0) {
+          gameOver = true;
+          paused = true;
+          _showGameOverDialog();
+          break;
+        }
+      } else {
+        // remove enemies that fall too far below screen (cleanup)
+        if (e.y > screenHeight + 200) {
+          enemies.removeAt(i);
+        }
+      }
+    }
+  }
+
+  void _checkGameOver() {
+    if (character.y > screenHeight && !gameOver) {
+      gameOver = true;
+      paused = true;
+      _showGameOverDialog();
+    }
+  }
+
+  void _addStartingPlatform() {
+    world.platforms.clear();
+    world.platforms.add(Platform(
+      x: screenWidth / 2 - 60,
+      y: screenHeight - spawnYOffset,
+      width: 120,
+      height: 20,
+    ));
+  }
+
+  Future<bool> _onWillPop() async {
+    paused = true;
+    bool? result = await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("Are you sure you want to go back?"),
+        actions: [
+          TextButton(
+            onPressed: () {
+              paused = false;
+              Navigator.of(context).pop(false);
+            },
+            child: Text("No"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text("Yes"),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  void _showGameOverDialog() {
+    showDialog(
+      barrierDismissible: false,
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("Game Over"),
+        content: Text("Do you want to try again?"),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _restartGame();
+            },
+            child: Text("Try Again"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => LevelSelectionPage()),
+              );
+            },
+            child: Text("Back"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _restartGame() {
+    paused = false;
+    gameOver = false;
+    enemies.clear();
+    character.x = screenWidth / 2 - character.width / 2;
+    character.y = screenHeight - spawnYOffset - character.height;
+    character.vy = 0;
+    character.currentHealth = character.maxHealth;
+    _addStartingPlatform();
+    nextSpawnIn = 0.5;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: Image.asset(
+                "assets/images/background/${widget.level['background_image']}",
+                fit: BoxFit.fill,
+                filterQuality: FilterQuality.none,
+              ),
+            ),
+            ...world.platforms.map((p) => Positioned(
+                  bottom: screenHeight - p.y,
+                  left: p.x,
+                  child: Container(
+                    width: p.width,
+                    height: p.height,
+                    color: Colors.brown,
+                  ),
+                )),
+            ...enemies.map((e) => Positioned(
+                  bottom: screenHeight - e.y - e.height,
+                  left: e.x,
+                  child: e.buildWidget(),
+                )),
+            Positioned(
+              bottom: screenHeight - character.y - character.height,
+              left: character.x,
+              child: character.buildWidget(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/*import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'dart:async';
@@ -269,261 +597,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
                   left: e.x,
                   child: e.buildWidget(),
                 )),
-            Positioned(
-              bottom: screenHeight - character.y - character.height,
-              left: character.x,
-              child: character.buildWidget(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-
-/*import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:sensors_plus/sensors_plus.dart';
-import 'dart:async';
-
-import '../game/character.dart';
-import '../game/world.dart';
-import '../game/platform.dart';
-import 'level_selection_page.dart';
-
-class GamePage extends StatefulWidget {
-  final Map<String, dynamic> level;
-  final Map<String, dynamic> subLevel;
-
-  GamePage({required this.level, required this.subLevel});
-
-  @override
-  State<GamePage> createState() => _GamePageState();
-}
-
-class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin {
-  final supabase = Supabase.instance.client;
-  late Character character;
-  late World world;
-
-  double screenWidth = 0;
-  double screenHeight = 0;
-
-  late AnimationController _controller;
-  StreamSubscription? _accelerometerSubscription;
-
-  bool gameOver = false;
-  bool paused = false;
-
-  final double spawnXOffset = 0; // centered
-  final double spawnYOffset = 150; // pixels from bottom
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      loadCharacter();
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _accelerometerSubscription?.cancel();
-    super.dispose();
-  }
-
-  Future<void> loadCharacter() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
-
-    final meta = await supabase
-        .from('users_meta')
-        .select()
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-    if (meta == null || meta['selected_character_id'] == null) return;
-
-    final charData = await supabase
-        .from('characters')
-        .select()
-        .eq('id', meta['selected_character_id'])
-        .maybeSingle();
-
-    if (charData == null) return;
-
-    screenWidth = MediaQuery.of(context).size.width;
-    screenHeight = MediaQuery.of(context).size.height;
-
-    // Initialize character
-    character = Character(
-      x: screenWidth / 2 - 40,
-      y: screenHeight - spawnYOffset - 80,
-      width: 80,
-      height: 80,
-      jumpStrength: charData['jump_strength']?.toDouble() ?? 20,
-      spritePath: charData['sprite_path'],
-      horizontalSpeedMultiplier: 2.0,
-    );
-
-    // Initialize world
-    world = World(
-      screenWidth: screenWidth,
-      screenHeight: screenHeight,
-      character: character,
-    );
-
-    // Add starting platform at center
-    _addStartingPlatform();
-
-    startGame();
-  }
-
-  void _addStartingPlatform() {
-    world.platforms.clear();
-    world.platforms.add(Platform(
-      x: screenWidth / 2 - 60,
-      y: screenHeight - spawnYOffset,
-      width: 120,
-      height: 20,
-    ));
-  }
-
-  void startGame() {
-    _controller = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: 16),
-    )..addListener(updateGame);
-
-    _controller.repeat();
-
-    _accelerometerSubscription = accelerometerEvents.listen((event) {
-      if (!paused) {
-        double tiltX = -event.x;
-
-        // Update character facing
-        if (tiltX > 0.1) {
-          character.facingRight = true;
-        } else if (tiltX < -0.1) {
-          character.facingRight = false;
-        }
-
-        // Update world only if not paused
-        world.update(tiltX);
-      }
-    });
-  }
-
-  void updateGame() {
-    setState(() {
-      if (!paused && !gameOver) {
-        // Check if character fell below screen
-        if (character.y > screenHeight) {
-          gameOver = true;
-          paused = true;
-          _showGameOverDialog();
-        }
-      }
-    });
-  }
-
-  Future<bool> _onWillPop() async {
-    paused = true; // pause the game immediately
-    bool? result = await showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text("Are you sure you want to go back?"),
-        actions: [
-          TextButton(
-            onPressed: () {
-              paused = false; // resume if player cancels
-              Navigator.of(context).pop(false);
-            },
-            child: Text("No"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text("Yes"),
-          ),
-        ],
-      ),
-    );
-
-    return result ?? false;
-  }
-
-  void _showGameOverDialog() {
-    showDialog(
-      barrierDismissible: false,
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text("Game Over"),
-        content: Text("Do you want to try again?"),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _restartGame();
-            },
-            child: Text("Try Again"),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => LevelSelectionPage()),
-              );
-            },
-            child: Text("Back"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _restartGame() {
-    paused = false;
-    gameOver = false;
-
-    // Reset character to **centered spawn**
-    character.x = screenWidth / 2 - character.width / 2;
-    character.y = screenHeight - spawnYOffset - character.height;
-    character.vy = 0;
-
-    // Reset platform
-    _addStartingPlatform();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: _onWillPop,
-      child: Scaffold(
-        body: Stack(
-          children: [
-            // Background
-            Positioned.fill(
-              child: Image.asset(
-                "assets/images/background/${widget.level['background_image']}",
-                fit: BoxFit.fill,
-                filterQuality: FilterQuality.none,
-              ),
-            ),
-
-            // Platforms
-            ...world.platforms.map((p) => Positioned(
-                  bottom: screenHeight - p.y,
-                  left: p.x,
-                  child: Container(
-                    width: p.width,
-                    height: p.height,
-                    color: Colors.brown,
-                  ),
-                )),
-
-            // Character
             Positioned(
               bottom: screenHeight - character.y - character.height,
               left: character.x,
