@@ -74,6 +74,38 @@ class Character {
       ),
     );
   }
+
+  Widget buildWithHealthBar() {
+    return Stack(
+      alignment: Alignment.topCenter,
+      children: [
+        // Health bar
+        Positioned(
+          top: -10,
+          child: Container(
+            width: width,
+            height: 8,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.black),
+              borderRadius: BorderRadius.circular(2),
+              color: Colors.red.withOpacity(0.3),
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: currentHealth / maxHealth,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          ),
+        ),
+        buildWidget(),
+      ],
+    );
+  }
 }
 
 /*import 'package:flutter/material.dart';
