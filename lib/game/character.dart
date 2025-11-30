@@ -75,7 +75,7 @@ class Character {
     );
   }
 
-  Widget buildWithHealthBar() {
+  /*Widget buildWithHealthBar() {
     return Stack(
       alignment: Alignment.topCenter,
       children: [
@@ -105,7 +105,7 @@ class Character {
         buildWidget(),
       ],
     );
-  }
+  }*/
 }
 
 /*import 'package:flutter/material.dart';
