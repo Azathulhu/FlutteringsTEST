@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'character.dart';
 
-enum EnemyState { descending, observing, rushing, cooldown }
+enum EnemyState { descending, observing, rushing, cooldown, retracting }
 
 class Enemy {
   double x;
@@ -40,14 +40,12 @@ class Enemy {
     required this.speed,
     required this.behavior,
   }) : currentHealth = currentHealth ?? maxHealth {
-    // pick initial small random velocity so it drifts a bit after spawn
     vx = (_rand.nextDouble() * 2 - 1) * (speed * 0.1);
     vy = (_rand.nextDouble() * 2 - 1) * (speed * 0.05);
     observeTargetX = x;
     observeTargetY = y;
   }
 
-  // Construct from DB map (helper)
   factory Enemy.fromMap({
     required double x,
     required double y,
@@ -70,7 +68,6 @@ class Enemy {
     );
   }
 
-  // Clone prototype at spawn coords
   Enemy cloneAt(double spawnX, double spawnY) {
     return Enemy.fromMap(
       x: spawnX,
@@ -84,11 +81,13 @@ class Enemy {
     );
   }
 
-  /// Update called every frame. dt in seconds.
+  void dealDamage(Character character) {
+    character.takeDamage(damage);
+  }
+
   void update(Character character, double dt) {
     stateTimer += dt;
 
-    // defensive casts and defaults
     final descendSpeed = (behavior['descend_speed'] ?? 60.0).toDouble();
     final observeHeight = (behavior['observe_height'] ?? 180.0).toDouble();
     final observeSpeed = (behavior['observe_speed'] ?? 45.0).toDouble();
@@ -102,7 +101,6 @@ class Enemy {
 
     switch (state) {
       case EnemyState.descending:
-        // always fall smoothly until observeHeight
         vy = descendSpeed;
         vx = 0;
         y += vy * dt;
@@ -117,41 +115,37 @@ class Enemy {
         break;
 
       case EnemyState.observing:
-        // smoothly move toward observeTarget (velocity-limited)
         final dx = observeTargetX - x;
         final dy = observeTargetY - y;
-        final dist = sqrt(dx * dx + dy * dy);
+        final dist = sqrt(dx*dx + dy*dy);
         if (dist > 1.0) {
           final mx = dx / dist;
           final my = dy / dist;
           vx = mx * observeSpeed;
           vy = my * observeSpeed;
         } else {
-          vx = vx * 0.9; // gentle slow
-          vy = vy * 0.9;
+          vx *= 0.9;
+          vy *= 0.9;
         }
         x += vx * dt;
         y += vy * dt;
 
-        // If player close enough, prepare to rush
         final pdx = character.x - x;
         final pdy = character.y - y;
-        final pdist = sqrt(pdx * pdx + pdy * pdy);
+        final pdist = sqrt(pdx*pdx + pdy*pdy);
         if (pdist <= detectDistance) {
           state = EnemyState.rushing;
           stateTimer = 0;
         } else if (stateTimer >= observeDuration) {
-          // occasionally pick a new observation point
           _pickObserveTargetNear(character, observeOffset);
           stateTimer = 0;
         }
         break;
 
       case EnemyState.rushing:
-        // direct velocity toward player (single continuous dash)
         final dxr = character.x - x;
         final dyr = character.y - y;
-        final dr = sqrt(dxr * dxr + dyr * dyr);
+        final dr = sqrt(dxr*dxr + dyr*dyr);
         if (dr > 1.0) {
           vx = (dxr / dr) * rushSpeed;
           vy = (dyr / dr) * rushSpeed;
@@ -159,18 +153,42 @@ class Enemy {
         x += vx * dt;
         y += vy * dt;
 
-        if (stateTimer >= rushDuration || (dr <= stopDistance)) {
+        final hit = (x < character.x + character.width &&
+                     x + width > character.x &&
+                     y < character.y + character.height &&
+                     y + height > character.y);
+
+        if (hit && behavior['alreadyHit'] != true) {
+          dealDamage(character);
+          behavior['alreadyHit'] = true;
+          state = EnemyState.retracting;
+          stateTimer = 0;
+        }
+
+        if (stateTimer >= rushDuration || dr <= stopDistance) {
           state = EnemyState.cooldown;
           stateTimer = 0;
           vx = 0;
           vy = 0;
-          // after rush, pick a new observe point a bit away
-          _pickObserveTargetNear(character, observeOffset / 1.5);
+          _pickObserveTargetNear(character, observeOffset/1.5);
+          behavior.remove('alreadyHit');
+        }
+        break;
+
+      case EnemyState.retracting:
+        // move slightly backward from player
+        x -= vx * 0.7 * dt;
+        y -= vy * 0.7 * dt;
+        if (stateTimer >= 0.5) {
+          state = EnemyState.cooldown;
+          stateTimer = 0;
+          vx = 0;
+          vy = 0;
+          behavior.remove('alreadyHit');
         }
         break;
 
       case EnemyState.cooldown:
-        // hover in place for cooldownDuration
         if (stateTimer >= cooldownDuration) {
           state = EnemyState.observing;
           stateTimer = 0;
@@ -181,14 +199,13 @@ class Enemy {
   }
 
   void _pickObserveTargetNear(Character targetCharacter, double offset) {
-    // choose a point near player's current x, but keep some separation
     final ox = targetCharacter.x + (_randDouble(-offset, offset));
-    final oy = max(80.0, targetCharacter.y - (_randDouble(20, offset / 2))); // above or near player
+    final oy = max(80.0, targetCharacter.y - (_randDouble(20, offset/2)));
     observeTargetX = ox;
     observeTargetY = oy;
   }
 
-  double _randDouble(double a, double b) => a + _rand.nextDouble() * (b - a);
+  double _randDouble(double a, double b) => a + _rand.nextDouble() * (b-a);
 
   Widget buildWidget() {
     return SizedBox(
@@ -201,12 +218,8 @@ class Enemy {
       ),
     );
   }
-
-  void dealDamage(Character character) {
-    character.currentHealth -= damage;
-    if (character.currentHealth < 0) character.currentHealth = 0;
-  }
 }
+
 
 /*import 'dart:math';
 import 'package:flutter/material.dart';
