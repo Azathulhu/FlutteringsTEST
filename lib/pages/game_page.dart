@@ -172,37 +172,25 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       nextSpawnIn = minSpawnInterval + random.nextDouble() * (maxSpawnInterval - minSpawnInterval);
     }
   }
-
   void _updateEnemies(double dt) {
     for (int i = enemies.length - 1; i >= 0; i--) {
       final e = enemies[i];
-      e.update(character, dt); // updated signature (character, dt)
-
-      // Collision check (simple AABB)
-      final hit = (character.x < e.x + e.width &&
-          character.x + character.width > e.x &&
-          character.y < e.y + e.height &&
-          character.y + character.height > e.y);
-
-      if (hit) {
-        e.dealDamage(character);
-        // optionally remove enemy on hit or allow reuse; here we remove to avoid repeated instant hits
+      e.update(character, dt);
+  
+      // Collision is now handled in enemy.update() for rushing
+      // Remove enemies that fall too far below the screen
+      if (e.y > screenHeight + 200) {
         enemies.removeAt(i);
-        if (character.currentHealth <= 0) {
-          gameOver = true;
-          paused = true;
-          _showGameOverDialog();
-          break;
-        }
-      } else {
-        // remove enemies that fall too far below screen (cleanup)
-        if (e.y > screenHeight + 200) {
-          enemies.removeAt(i);
-        }
       }
     }
+  
+    // Check if player is dead
+    if (character.currentHealth <= 0 && !gameOver) {
+      gameOver = true;
+      paused = true;
+      _showGameOverDialog();
+    }
   }
-
   void _checkGameOver() {
     if (character.y > screenHeight && !gameOver) {
       gameOver = true;
