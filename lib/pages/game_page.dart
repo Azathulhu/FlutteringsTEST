@@ -159,31 +159,54 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     if (spawnPool.isEmpty) return;
     nextSpawnIn -= dt;
     if (nextSpawnIn <= 0 && enemies.length < maxActiveEnemies) {
-      // pick spawn X across screen, spawn Y above screen
       final spawnX = random.nextDouble() * (screenWidth - 80);
-      final spawnY = -60.0 - random.nextDouble() * 120.0; // off-screen
-      // use EnemyService pickWeighted (we reuse load function)
+      final spawnY = -60.0 - random.nextDouble() * 120.0;
       final enemyService = EnemyService();
       final prototype = enemyService.pickRandomFromPool(spawnPool, spawnX, spawnY);
       if (prototype != null) {
         enemies.add(prototype);
       }
-      // schedule next spawn
       nextSpawnIn = minSpawnInterval + random.nextDouble() * (maxSpawnInterval - minSpawnInterval);
     }
   }
+
   void _updateEnemies(double dt) {
     for (int i = enemies.length - 1; i >= 0; i--) {
       final e = enemies[i];
       e.update(character, dt);
-  
-      // Collision is now handled in enemy.update() for rushing
+
+      // Damage player on contact
+      final hit = (character.x < e.x + e.width &&
+          character.x + character.width > e.x &&
+          character.y < e.y + e.height &&
+          character.y + character.height > e.y);
+
+      if (hit) {
+        // subtract health
+        character.currentHealth -= e.damage;
+        if (character.currentHealth < 0) character.currentHealth = 0;
+
+        // retract enemy after hitting
+        final dx = e.x - character.x;
+        final dy = e.y - character.y;
+        final retractDistance = 50.0; // how far enemy moves back
+        final dist = sqrt(dx * dx + dy * dy);
+        if (dist > 0) {
+          e.x += (dx / dist) * retractDistance;
+          e.y += (dy / dist) * retractDistance;
+        }
+
+        // optional: reset enemy state to observing
+        e.state = EnemyState.cooldown;
+        e.stateTimer = 0;
+      }
+
       // Remove enemies that fall too far below the screen
       if (e.y > screenHeight + 200) {
         enemies.removeAt(i);
       }
     }
-  
+
     // Check if player is dead
     if (character.currentHealth <= 0 && !gameOver) {
       gameOver = true;
@@ -191,6 +214,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       _showGameOverDialog();
     }
   }
+
   void _checkGameOver() {
     if (character.y > screenHeight && !gameOver) {
       gameOver = true;
@@ -307,12 +331,51 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
               left: character.x,
               child: character.buildWidget(),
             ),
+
+            // Bottom-right health bar
+            Positioned(
+              bottom: 20,
+              right: 20,
+              child: Container(
+                width: 160,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Stack(
+                  children: [
+                    FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: character.currentHealth / character.maxHealth,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: Text(
+                        "${character.currentHealth}/${character.maxHealth} HP",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 }
+
 
 /*import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
