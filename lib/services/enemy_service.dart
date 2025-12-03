@@ -1,4 +1,3 @@
-// lib/services/enemy_service.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:math';
 import '../game/enemy.dart';
@@ -6,32 +5,37 @@ import '../game/enemy.dart';
 class SpawnEntry {
   final Enemy prototype;
   final double weight;
-  SpawnEntry({required this.prototype, required this.weight});
+  final int minSpawn;
+  final int maxSpawn;
+
+  SpawnEntry({
+    required this.prototype,
+    required this.weight,
+    required this.minSpawn,
+    required this.maxSpawn,
+  });
 }
 
 class EnemyService {
   final supabase = Supabase.instance.client;
+  final Random _rand = Random();
 
-  /// Load spawn pool for a sublevel.
-  /// Returns a list of SpawnEntry (prototypes + spawn weight)
   Future<List<SpawnEntry>> loadSpawnPoolForSubLevel(
       int subLevelId, double spawnX, double spawnY) async {
     final poolRows = await supabase
         .from('sub_level_enemies')
-        .select('spawn_rate, enemies(*)')
+        .select('spawn_rate, min_spawn, max_spawn, rarity_multiplier, enemies(*)')
         .eq('sub_level_id', subLevelId);
 
     if (poolRows == null || poolRows.isEmpty) return [];
 
-    final List<SpawnEntry> pool = [];
+    List<SpawnEntry> pool = [];
 
     for (var row in poolRows) {
       final e = row['enemies'];
       if (e == null) continue;
 
-      // Make sure behavior is a Map<String, dynamic>
-      final Map<String, dynamic> behavior =
-          Map<String, dynamic>.from(e['behavior'] ?? {});
+      final behavior = Map<String, dynamic>.from(e['behavior'] ?? {});
 
       final prototype = Enemy.fromMap(
         x: spawnX,
@@ -44,45 +48,48 @@ class EnemyService {
         behavior: behavior,
       );
 
-      final weight = (row['spawn_rate'] ?? 1.0).toDouble();
+      final weight =
+          ((row['spawn_rate'] ?? 1.0) * (row['rarity_multiplier'] ?? 1.0))
+              .toDouble();
+      final minSpawn = (row['min_spawn'] ?? 1) as int;
+      final maxSpawn = (row['max_spawn'] ?? 3) as int;
 
-      pool.add(SpawnEntry(prototype: prototype, weight: weight));
+      pool.add(SpawnEntry(
+          prototype: prototype, weight: weight, minSpawn: minSpawn, maxSpawn: maxSpawn));
     }
 
     return pool;
   }
 
-  /// Pick a random prototype from pool considering weights.
-  /// Returns a cloned Enemy instance at specified spawn coordinates.
-  Enemy? pickRandomFromPool(
+  /// Pick random enemy from pool, considering weights, min/max spawn
+  List<Enemy> pickRandomFromPool(
       List<SpawnEntry> pool, double spawnX, double spawnY) {
-    if (pool.isEmpty) return null;
+    if (pool.isEmpty) return [];
 
-    final totalWeight = pool.fold<double>(0, (sum, e) => sum + e.weight);
-    double r = Random().nextDouble() * totalWeight;
+    double totalWeight = pool.fold(0, (p, e) => p + e.weight);
+
+    double r = _rand.nextDouble() * totalWeight;
+
+    SpawnEntry? selected;
 
     for (var entry in pool) {
       if (r <= entry.weight) {
-        return entry.prototype.cloneAt(spawnX, spawnY);
+        selected = entry;
+        break;
       }
       r -= entry.weight;
     }
 
-    // fallback in case of rounding errors
-    return pool.last.prototype.cloneAt(spawnX, spawnY);
-  }
+    selected ??= pool.last;
 
-  /// Optional: spawn multiple enemies at once (useful for waves later)
-  List<Enemy> spawnMultipleFromPool(
-      List<SpawnEntry> pool, double spawnX, double spawnY, int count) {
-    final List<Enemy> spawned = [];
-    for (int i = 0; i < count; i++) {
-      final e = pickRandomFromPool(pool, spawnX, spawnY);
-      if (e != null) spawned.add(e);
-    }
-    return spawned;
+    int count =
+        selected.minSpawn + _rand.nextInt(selected.maxSpawn - selected.minSpawn + 1);
+
+    return List.generate(
+        count, (_) => selected!.prototype.cloneAt(spawnX, spawnY));
   }
 }
+
 
 
 /*import 'package:supabase_flutter/supabase_flutter.dart';
