@@ -161,7 +161,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       character.y += character.vy * dt;
   
       // Optional: clamp to screen
-      character.y = character.y.clamp(0, screenHeight - character.height);
+      //character.y = character.y.clamp(0, screenHeight - character.height);
   
       _checkGameOver();
       setState(() {});
