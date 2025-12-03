@@ -46,7 +46,8 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   final double minSpawnInterval = 1.0;
   final double maxSpawnInterval = 3.0;
   //final int maxActiveEnemies = 6;
-  final int maxActiveEnemies = widget.subLevel['max_active_enemies'] ?? 6;
+  int maxActiveEnemies = 6;
+
 
 
   // Timing
@@ -55,6 +56,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   @override
   void initState() {
     super.initState();
+    maxActiveEnemies = widget.subLevel['max_active_enemies'] ?? 6;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await loadCharacter();
       await prepareSpawnPool();
