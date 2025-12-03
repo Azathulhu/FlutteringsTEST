@@ -183,7 +183,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   // On enemy death
   void _onEnemyDeath(Enemy enemy) {
     final enemyService = EnemyService();
-    enemyService.notifyEnemyDeath(spawnPool, enemy);
     enemies.remove(enemy);
   }
 
