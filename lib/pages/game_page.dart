@@ -160,24 +160,21 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     if (spawnPool.isEmpty) return;
   
     nextSpawnIn -= dt;
-    if (nextSpawnIn <= 0) {
-      // Spawn only if below global max
-      final activeEnemiesCount = enemies.length;
-      const maxActiveEnemies = 8; // can be moved to sublevel config if needed
+    if (nextSpawnIn > 0 || enemies.length >= maxActiveEnemies) return;
   
-      if (activeEnemiesCount < maxActiveEnemies) {
-        final spawnX = random.nextDouble() * (screenWidth - 80);
-        final spawnY = -60.0 - random.nextDouble() * 120.0;
+    // pick ONE enemy per spawn
+    final spawnX = random.nextDouble() * (screenWidth - 80);
+    final spawnY = -60.0 - random.nextDouble() * 120.0;
   
-        final enemyService = EnemyService();
-        final enemy = enemyService.pickRandomFromPool(spawnPool, spawnX, spawnY);
+    final enemyService = EnemyService();
+    final prototype = enemyService.pickRandomFromPool(spawnPool, spawnX, spawnY);
   
-        if (enemy != null) enemies.add(enemy);
-      }
-  
-      // Dynamic spawn interval
-      nextSpawnIn = 0.5 + random.nextDouble() * 1.5;
+    if (prototype != null) {
+      enemies.add(prototype);
     }
+  
+    // reset timer for next spawn
+    nextSpawnIn = minSpawnInterval + random.nextDouble() * (maxSpawnInterval - minSpawnInterval);
   }
   
   // On enemy death
