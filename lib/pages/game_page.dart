@@ -145,7 +145,36 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     });
   }
 
+  //
+  void _updateCharacter(double dt) {
+    character.vy += character.gravity * dt; // apply gravity
+    character.y += character.vy * dt;       // vertical movement
+    character.x += character.vx * dt;       // horizontal movement
+  
+    // Optional: clamp character to screen bounds
+    character.x = character.x.clamp(0, screenWidth - character.width);
+    character.y = character.y.clamp(0, screenHeight - character.height);
+  }
+
+
   void _gameTick() {
+    final now = DateTime.now();
+    double dt = now.difference(_lastTime).inMilliseconds / 1000.0;
+    _lastTime = now;
+  
+    // Clamp dt so physics doesn't explode or go into slow-mo
+    dt = dt.clamp(0.016, 0.033); // ~30–60 FPS safe range
+  
+    if (!paused && !gameOver) {
+      _updateSpawner(dt);
+      _updateEnemies(dt);
+      _updateCharacter(dt);
+      _checkGameOver();
+      setState(() {});
+    }
+  }
+
+  /*void _gameTick() {
     final now = DateTime.now();
     final dt = (now.difference(_lastTime).inMilliseconds / 1000.0).clamp(0.001, 0.05);
     _lastTime = now;
@@ -156,7 +185,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       _checkGameOver();
       setState(() {});
     }
-  }
+  }*/
 
   void _updateSpawner(double dt) {
     if (spawnPool.isEmpty) return;
