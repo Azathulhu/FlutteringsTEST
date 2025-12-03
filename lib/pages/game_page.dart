@@ -45,7 +45,9 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   double nextSpawnIn = 0.0; // seconds until next spawn
   final double minSpawnInterval = 1.0;
   final double maxSpawnInterval = 3.0;
-  final int maxActiveEnemies = 6;
+  //final int maxActiveEnemies = 6;
+  final int maxActiveEnemies = widget.subLevel['max_active_enemies'] ?? 6;
+
 
   // Timing
   late DateTime _lastTime;
