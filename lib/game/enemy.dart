@@ -26,10 +26,9 @@ class Enemy {
   double observeTargetY = 0.0;
   final Random _rand = Random();
 
-  // --- NEW: retraction fields ---
   bool isRetracting = false;
   double retractRemaining = 0.0;
-  double retractSpeed = 150.0; // pixels per second
+  double retractSpeed = 150.0;
   double retractDirX = 0.0;
   double retractDirY = 0.0;
 
@@ -46,7 +45,6 @@ class Enemy {
     required this.speed,
     required this.behavior,
   }) : currentHealth = currentHealth ?? maxHealth {
-    // initial small random drift
     vx = (_rand.nextDouble() * 2 - 1) * (speed * 0.1);
     vy = (_rand.nextDouble() * 2 - 1) * (speed * 0.05);
     observeTargetX = x;
@@ -88,24 +86,17 @@ class Enemy {
     );
   }
 
-  /// Call to start smooth retraction
   void startRetract(double dx, double dy, double distance) {
     isRetracting = true;
     retractRemaining = distance;
     final dist = sqrt(dx * dx + dy * dy);
-    if (dist > 0) {
-      retractDirX = dx / dist;
-      retractDirY = dy / dist;
-    } else {
-      retractDirX = 0;
-      retractDirY = 0;
-    }
+    retractDirX = dist > 0 ? dx / dist : 0;
+    retractDirY = dist > 0 ? dy / dist : 0;
     state = EnemyState.cooldown;
     stateTimer = 0;
   }
 
   void update(Character character, double dt) {
-    // --- handle smooth retraction first ---
     if (isRetracting) {
       final move = min(retractSpeed * dt, retractRemaining);
       x += retractDirX * move;
@@ -116,12 +107,11 @@ class Enemy {
         vx = 0;
         vy = 0;
       }
-      return; // skip normal AI movement while retracting
+      return;
     }
 
     stateTimer += dt;
 
-    // defensive casts and defaults
     final descendSpeed = (behavior['descend_speed'] ?? 60.0).toDouble();
     final observeHeight = (behavior['observe_height'] ?? 180.0).toDouble();
     final observeSpeed = (behavior['observe_speed'] ?? 45.0).toDouble();
@@ -136,12 +126,11 @@ class Enemy {
     switch (state) {
       case EnemyState.descending:
         vy = descendSpeed;
-        vx = 0;
+        x += vx * dt;
         y += vy * dt;
         if (y >= observeHeight) {
           y = observeHeight;
           vy = 0;
-          vx = 0;
           state = EnemyState.observing;
           stateTimer = 0;
           _pickObserveTargetNear(character, observeOffset);
@@ -153,10 +142,8 @@ class Enemy {
         final dy = observeTargetY - y;
         final dist = sqrt(dx * dx + dy * dy);
         if (dist > 1.0) {
-          final mx = dx / dist;
-          final my = dy / dist;
-          vx = mx * observeSpeed;
-          vy = my * observeSpeed;
+          vx = (dx / dist) * observeSpeed;
+          vy = (dy / dist) * observeSpeed;
         } else {
           vx *= 0.9;
           vy *= 0.9;
@@ -187,18 +174,13 @@ class Enemy {
         x += vx * dt;
         y += vy * dt;
 
-        // deal damage if touching
         if ((x < character.x + character.width &&
             x + width > character.x &&
             y < character.y + character.height &&
             y + height > character.y)) {
           character.currentHealth -= damage;
           if (character.currentHealth < 0) character.currentHealth = 0;
-
-          // start smooth retraction
-          final dx = x - character.x;
-          final dy = y - character.y;
-          startRetract(dx, dy, 50.0); // retract 50 pixels
+          startRetract(x - character.x, y - character.y, 50.0);
         }
 
         if (stateTimer >= rushDuration || dr <= stopDistance) {
@@ -221,13 +203,10 @@ class Enemy {
   }
 
   void _pickObserveTargetNear(Character targetCharacter, double offset) {
-    final ox = targetCharacter.x + (_randDouble(-offset, offset));
-    final oy = max(80.0, targetCharacter.y - (_randDouble(20, offset / 2)));
-    observeTargetX = ox;
-    observeTargetY = oy;
+    observeTargetX =
+        targetCharacter.x + (_rand.nextDouble() * 2 - 1) * offset;
+    observeTargetY = max(80.0, targetCharacter.y - (_rand.nextDouble() * offset / 2));
   }
-
-  double _randDouble(double a, double b) => a + _rand.nextDouble() * (b - a);
 
   Widget buildWidget() {
     return SizedBox(
@@ -240,12 +219,8 @@ class Enemy {
       ),
     );
   }
-
-  void dealDamage(Character character) {
-    character.currentHealth -= damage;
-    if (character.currentHealth < 0) character.currentHealth = 0;
-  }
 }
+
 
 
 
