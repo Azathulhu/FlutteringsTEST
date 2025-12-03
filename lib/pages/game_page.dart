@@ -158,24 +158,24 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   // lib/pages/game_page.dart (spawner section)
   void _updateSpawner(double dt) {
     if (spawnPool.isEmpty) return;
-  
     nextSpawnIn -= dt;
-    if (nextSpawnIn > 0 || enemies.length >= maxActiveEnemies) return;
   
-    // pick ONE enemy per spawn
-    final spawnX = random.nextDouble() * (screenWidth - 80);
-    final spawnY = -60.0 - random.nextDouble() * 120.0;
+    if (nextSpawnIn <= 0 && enemies.length < maxActiveEnemies) {
+      final spawnX = random.nextDouble() * (screenWidth - 80);
+      final spawnY = -60.0 - random.nextDouble() * 120.0;
   
-    final enemyService = EnemyService();
-    final prototype = enemyService.pickRandomFromPool(spawnPool, spawnX, spawnY);
+      final enemyService = EnemyService();
+      final newEnemies = enemyService.pickRandomFromPool(spawnPool, spawnX, spawnY);
   
-    if (prototype != null) {
-      enemies.add(prototype);
+      for (var e in newEnemies) {
+        if (enemies.length < maxActiveEnemies) enemies.add(e);
+      }
+  
+      nextSpawnIn = minSpawnInterval +
+          random.nextDouble() * (maxSpawnInterval - minSpawnInterval);
     }
-  
-    // reset timer for next spawn
-    nextSpawnIn = minSpawnInterval + random.nextDouble() * (maxSpawnInterval - minSpawnInterval);
   }
+
   
   // On enemy death
   void _onEnemyDeath(Enemy enemy) {
