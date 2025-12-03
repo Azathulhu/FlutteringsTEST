@@ -1,3 +1,4 @@
+// lib/services/enemy_service.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:math';
 import '../game/enemy.dart';
@@ -5,6 +6,7 @@ import '../game/enemy.dart';
 class SpawnEntry {
   final Enemy prototype;
   final double weight;
+
   SpawnEntry({required this.prototype, required this.weight});
 }
 
@@ -21,6 +23,7 @@ class EnemyService {
     if (poolRows == null || poolRows.isEmpty) return [];
 
     final List<SpawnEntry> pool = [];
+
     for (var row in poolRows) {
       final e = row['enemies'];
       if (e == null) continue;
@@ -40,7 +43,6 @@ class EnemyService {
       );
 
       final weight = (row['spawn_rate'] ?? 1.0).toDouble();
-
       pool.add(SpawnEntry(prototype: prototype, weight: weight));
     }
 
@@ -50,8 +52,10 @@ class EnemyService {
   /// Pick a random prototype from pool (weights considered) and clone it with spawn coords
   Enemy? pickRandomFromPool(List<SpawnEntry> pool, double spawnX, double spawnY) {
     if (pool.isEmpty) return null;
+
     final total = pool.fold<double>(0, (p, e) => p + e.weight);
     double r = Random().nextDouble() * total;
+
     for (var entry in pool) {
       if (r <= entry.weight) {
         // clone prototype to new actual instance (preserve behavior)
@@ -59,6 +63,7 @@ class EnemyService {
       }
       r -= entry.weight;
     }
+
     // fallback
     return pool.last.prototype.cloneAt(spawnX, spawnY);
   }
