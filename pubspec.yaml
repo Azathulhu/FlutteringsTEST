@@ -47,3 +47,5 @@ flutter:
     - assets/character sprites/
     - assets/images/background/
     - assets/enemies/
+    - assets/weapons/
+    - assets/weapons/projectiles/
