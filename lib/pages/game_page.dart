@@ -52,6 +52,10 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   // Timing
   late DateTime _lastTime;
 
+  Weapon? equippedWeapon;
+  List<Projectile> activeProjectiles = [];
+  double timeSinceLastShot = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -71,6 +75,80 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     _accelerometerSubscription?.cancel();
     super.dispose();
   }
+  //
+  Future<void> loadWeapon() async {
+    final weaponService = WeaponService();
+    final user = supabase.auth.currentUser;
+    if (user != null) {
+      equippedWeapon = await weaponService.getUserWeapon(user.id);
+    }
+  }
+
+  void updateWeapon(double dt) {
+    if (equippedWeapon == null || enemies.isEmpty) return;
+  
+    timeSinceLastShot += dt;
+  
+    // Find nearest enemy
+    enemies.sort((a, b) {
+      double da = ((a.x - character.x).abs() + (a.y - character.y).abs());
+      double db = ((b.x - character.x).abs() + (b.y - character.y).abs());
+      return da.compareTo(db);
+    });
+  
+    final target = enemies.first;
+  
+    // Weapon rotation
+    double dx = target.x + target.width / 2 - (character.x + character.width / 2);
+    double dy = target.y + target.height / 2 - (character.y + character.height / 2);
+    double angle = atan2(dy, dx);
+  
+    // Auto-shoot
+    double fireInterval = 1 / equippedWeapon!.fireRate;
+    if (timeSinceLastShot >= fireInterval) {
+      timeSinceLastShot = 0;
+      Projectile proj = Projectile(
+        x: character.x + character.width / 2,
+        y: character.y + character.height / 2,
+        speed: equippedWeapon!.projectile.speed,
+        damage: equippedWeapon!.damage,
+        spritePath: equippedWeapon!.projectile.spritePath,
+      );
+      double dist = sqrt(dx * dx + dy * dy);
+      proj.vx = dx / dist * proj.speed;
+      proj.vy = dy / dist * proj.speed;
+  
+      activeProjectiles.add(proj);
+    }
+  
+    // Update projectiles
+    for (int i = activeProjectiles.length - 1; i >= 0; i--) {
+      final p = activeProjectiles[i];
+      p.update(dt);
+  
+      // Collision check
+      for (int j = enemies.length - 1; j >= 0; j--) {
+        final e = enemies[j];
+        if (p.x < e.x + e.width &&
+            p.x + 20 > e.x &&
+            p.y < e.y + e.height &&
+            p.y + 20 > e.y) {
+          e.currentHealth -= p.damage;
+          activeProjectiles.removeAt(i);
+          if (e.currentHealth <= 0) {
+            enemies.removeAt(j);
+          }
+          break;
+        }
+      }
+  
+      // Remove projectiles off-screen
+      if (p.x < 0 || p.x > screenWidth || p.y < 0 || p.y > screenHeight) {
+        activeProjectiles.removeAt(i);
+      }
+    }
+  }
+  //
 
   Future<void> prepareSpawnPool() async {
     final enemyService = EnemyService();
@@ -317,6 +395,24 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
               left: character.x,
               child: character.buildWidget(),
             ),
+
+                        // Weapon sprite in hand
+            Positioned(
+              left: character.x + character.width / 2 - 16,
+              top: character.y + character.height / 2 - 16,
+              child: Transform.rotate(
+                angle: angle, // calculated from updateWeapon()
+                alignment: Alignment.center,
+                child: Image.asset(
+                  equippedWeapon!.spritePath,
+                  width: 32,
+                  height: 32,
+                ),
+              ),
+            ),
+            
+            // Projectiles
+            ...activeProjectiles.map((p) => p.buildWidget()),
 
             // Bottom-right health bar
             Positioned(
