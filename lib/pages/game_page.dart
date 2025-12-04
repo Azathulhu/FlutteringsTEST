@@ -371,37 +371,37 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
             ),
 
             // Weapon sprite
+            // Weapon sprite on top of the character
             if (equippedWeapon != null)
               Positioned(
-                left: character.x + character.width / 2 - 24, // larger, centered
-                top: character.y + character.height / 2 - 48, // on top of character
+                left: character.x + character.width / 2 - 16, // half of new width
+                top: character.y - 16, // place above the character
                 child: Transform.rotate(
-                  angle: weaponAngle,
+                  angle: weaponAngle, // weapon rotation
                   alignment: Alignment.center,
                   child: Image.asset(
                     equippedWeapon!.spritePath,
-                    width: 48,  // larger
-                    height: 48, // larger
+                    width: 32,  // scaled up from 16
+                    height: 16, // scaled up from 8
                   ),
                 ),
               ),
 
-
+            // Projectiles
             // Projectiles
             ...activeProjectiles.map((p) => Positioned(
-              left: p.x,
-              top: p.y,
+              left: p.x - 16, // offset by half width of projectile
+              top: p.y - 8,   // offset by half height of projectile
               child: Transform.rotate(
-                angle: atan2(p.vy, p.vx), // rotate toward velocity
+                angle: atan2(p.vy, p.vx), // rotate toward movement direction
                 alignment: Alignment.center,
                 child: Image.asset(
                   p.spritePath,
-                  width: 24,  // slightly larger
-                  height: 16, // match your horizontal PNG
+                  width: 32,  // scaled up
+                  height: 16, // scaled up
                 ),
               ),
             )),
-
             // Health bar
             Positioned(
               bottom: 20,
