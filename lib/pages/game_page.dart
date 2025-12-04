@@ -373,21 +373,34 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
             // Weapon sprite
             if (equippedWeapon != null)
               Positioned(
-                left: character.x + character.width / 2 - 16,
-                top: character.y + character.height / 2 - 16,
+                left: character.x + character.width / 2 - 24, // larger, centered
+                top: character.y + character.height / 2 - 48, // on top of character
                 child: Transform.rotate(
                   angle: weaponAngle,
                   alignment: Alignment.center,
                   child: Image.asset(
                     equippedWeapon!.spritePath,
-                    width: 32,
-                    height: 32,
+                    width: 48,  // larger
+                    height: 48, // larger
                   ),
                 ),
               ),
 
+
             // Projectiles
-            ...activeProjectiles.map((p) => p.buildWidget()),
+            ...activeProjectiles.map((p) => Positioned(
+              left: p.x,
+              top: p.y,
+              child: Transform.rotate(
+                angle: atan2(p.vy, p.vx), // rotate toward velocity
+                alignment: Alignment.center,
+                child: Image.asset(
+                  p.spritePath,
+                  width: 24,  // slightly larger
+                  height: 16, // match your horizontal PNG
+                ),
+              ),
+            )),
 
             // Health bar
             Positioned(
