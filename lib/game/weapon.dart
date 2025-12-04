@@ -1,9 +1,12 @@
+import 'package:flutter/material.dart';
+import 'projectile.dart';
+
 class Weapon {
   final int id;
   final String name;
   final String spritePath;
   final int damage;
-  final double fireRate; // shots per second
+  final double fireRate;
   final Projectile projectile;
 
   Weapon({
