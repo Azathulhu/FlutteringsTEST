@@ -68,7 +68,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     maxActiveEnemies = widget.subLevel['max_active_enemies'] ?? 6;
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _loadGameData(); // load everything async, precache images
+      await _loadGameData();
       nextSpawnIn = 0.5 + random.nextDouble();
       startGameLoop();
     });
@@ -85,30 +85,16 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
-    // 1. Load user meta
-    final metaFuture = supabase.from('users_meta').select().eq('user_id', user.id).maybeSingle();
-
-    // 2. Load weapon and spawn pool in parallel
-    final weaponService = WeaponService();
-    final enemyService = EnemyService();
-
-    final results = await Future.wait([
-      weaponService.getUserWeapon(user.id), // weapon
-      enemyService.loadSpawnPoolForSubLevel(widget.subLevel['id'], 0, -120), // spawn pool
-      metaFuture,
-    ]);
-
-    equippedWeapon = results[0] as Weapon?;
-    spawnPool = results[1] as List<SpawnEntry>;
-    final meta = results[2];
-
+    // Load user meta
+    final metaRaw = await supabase.from('users_meta').select().eq('user_id', user.id).maybeSingle();
+    final meta = metaRaw as Map<String, dynamic>?;
     if (meta == null || meta['selected_character_id'] == null) return;
 
-    // 3. Load character
-    final charData = await supabase.from('characters')
-        .select()
+    // Load character data
+    final charRaw = await supabase.from('characters').select()
         .eq('id', meta['selected_character_id'])
         .maybeSingle();
+    final charData = charRaw as Map<String, dynamic>?;
     if (charData == null) return;
 
     screenWidth = MediaQuery.of(context).size.width;
@@ -134,18 +120,87 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
     _addStartingPlatform();
 
-    // 4. Pre-cache all images before starting
+    // Load weapon and spawn pool in parallel
+    final weaponService = WeaponService();
+    final enemyService = EnemyService();
+
+    final results = await Future.wait([
+      weaponService.getUserWeapon(user.id),
+      enemyService.loadSpawnPoolForSubLevel(widget.subLevel['id'], 0, -120),
+    ]);
+
+    equippedWeapon = results[0] as Weapon?;
+    spawnPool = results[1] as List<SpawnEntry>;
+
+    // Precache character and weapon assets only
     List<Future> precacheFutures = [];
     precacheFutures.add(precacheImage(AssetImage(character.spritePath), context));
     if (equippedWeapon != null) {
       precacheFutures.add(precacheImage(AssetImage(equippedWeapon!.spritePath), context));
       precacheFutures.add(precacheImage(AssetImage(equippedWeapon!.projectile.spritePath), context));
     }
-    for (final enemy in spawnPool) {
-      precacheFutures.add(precacheImage(AssetImage(enemy.spritePath), context));
+    await Future.wait(precacheFutures);
+  }
+
+  void startGameLoop() {
+    _lastTime = DateTime.now();
+    _controller = AnimationController(vsync: this)..addListener(_gameTick);
+    _controller.repeat(min: 0, max: 1, period: Duration(milliseconds: 16));
+
+    _accelerometerSubscription = accelerometerEvents.listen((event) {
+      if (!paused) {
+        double tiltX = -event.x;
+        if (tiltX > 0.1) character.facingRight = true;
+        else if (tiltX < -0.1) character.facingRight = false;
+
+        world.update(tiltX);
+      }
+    });
+  }
+
+  void _gameTick() {
+    final now = DateTime.now();
+    double dt = now.difference(_lastTime).inMilliseconds / 1000.0;
+    _lastTime = now;
+    dt = dt.clamp(0.016, 0.033);
+
+    if (!paused && !gameOver) {
+      _updateSpawner(dt);
+      _updateEnemies(dt);
+      updateWeapon(dt);
+
+      character.y += character.vy * dt;
+
+      _checkGameOver();
+      setState(() {});
+    }
+  }
+
+  void _updateSpawner(double dt) {
+    if (spawnPool.isEmpty) return;
+    nextSpawnIn -= dt;
+    if (nextSpawnIn <= 0 && enemies.length < maxActiveEnemies) {
+      final spawnX = random.nextDouble() * (screenWidth - 80);
+      final spawnY = -60.0 - random.nextDouble() * 120.0;
+      final enemyService = EnemyService();
+      final prototype = enemyService.pickRandomFromPool(spawnPool, spawnX, spawnY);
+      if (prototype != null) enemies.add(prototype);
+      nextSpawnIn = minSpawnInterval + random.nextDouble() * (maxSpawnInterval - minSpawnInterval);
+    }
+  }
+
+  void _updateEnemies(double dt) {
+    for (int i = enemies.length - 1; i >= 0; i--) {
+      final e = enemies[i];
+      e.update(character, dt);
+      if (e.y > screenHeight + 200) enemies.removeAt(i);
     }
 
-    await Future.wait(precacheFutures);
+    if (character.currentHealth <= 0 && !gameOver) {
+      gameOver = true;
+      paused = true;
+      _showGameOverDialog();
+    }
   }
 
   void updateWeapon(double dt) {
@@ -162,7 +217,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     });
 
     final target = enemies.first;
-
     double dx = (target.x + target.width / 2) - (character.x + character.width / 2);
     double dy = (target.y + target.height / 2) - (character.y + character.height / 2);
     weaponAngle = atan2(dy, dx);
@@ -170,6 +224,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     double fireInterval = 1 / max(0.0001, equippedWeapon!.fireRate);
     if (timeSinceLastShot >= fireInterval) {
       timeSinceLastShot = 0;
+
       Projectile proj = Projectile(
         x: character.x + character.width / 2,
         y: character.y + character.height / 2,
@@ -211,70 +266,13 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         }
       }
 
-      if (!shouldRemove &&
-          (p.x + projW/2 < 0 || p.x - projW/2 > screenWidth || p.y + projH/2 < 0 || p.y - projH/2 > screenHeight)) {
-        shouldRemove = true;
+      if (!shouldRemove) {
+        if (p.x + projW / 2 < 0 || p.x - projW / 2 > screenWidth || p.y + projH / 2 < 0 || p.y - projH / 2 > screenHeight) {
+          shouldRemove = true;
+        }
       }
 
       if (shouldRemove) activeProjectiles.removeAt(i);
-    }
-  }
-
-  void startGameLoop() {
-    _lastTime = DateTime.now();
-    _controller = AnimationController(vsync: this)..addListener(_gameTick);
-    _controller.repeat(min: 0, max: 1, period: Duration(milliseconds: 16));
-
-    _accelerometerSubscription = accelerometerEvents.listen((event) {
-      if (!paused) {
-        double tiltX = -event.x;
-        if (tiltX > 0.1) character.facingRight = true;
-        else if (tiltX < -0.1) character.facingRight = false;
-        world.update(tiltX);
-      }
-    });
-  }
-
-  void _gameTick() {
-    final now = DateTime.now();
-    double dt = now.difference(_lastTime).inMilliseconds / 1000.0;
-    _lastTime = now;
-    dt = dt.clamp(0.016, 0.033);
-
-    if (!paused && !gameOver) {
-      _updateSpawner(dt);
-      _updateEnemies(dt);
-      updateWeapon(dt);
-      character.y += character.vy * dt;
-      _checkGameOver();
-      setState(() {});
-    }
-  }
-
-  void _updateSpawner(double dt) {
-    if (spawnPool.isEmpty) return;
-    nextSpawnIn -= dt;
-    if (nextSpawnIn <= 0 && enemies.length < maxActiveEnemies) {
-      final spawnX = random.nextDouble() * (screenWidth - 80);
-      final spawnY = -60.0 - random.nextDouble() * 120.0;
-      final enemyService = EnemyService();
-      final prototype = enemyService.pickRandomFromPool(spawnPool, spawnX, spawnY);
-      if (prototype != null) enemies.add(prototype);
-      nextSpawnIn = minSpawnInterval + random.nextDouble() * (maxSpawnInterval - minSpawnInterval);
-    }
-  }
-
-  void _updateEnemies(double dt) {
-    for (int i = enemies.length - 1; i >= 0; i--) {
-      final e = enemies[i];
-      e.update(character, dt);
-      if (e.y > screenHeight + 200) enemies.removeAt(i);
-    }
-
-    if (character.currentHealth <= 0 && !gameOver) {
-      gameOver = true;
-      paused = true;
-      _showGameOverDialog();
     }
   }
 
@@ -416,7 +414,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
               final left = p.x - projW / 2;
               final bottom = screenHeight - p.y - projH / 2;
               final angle = atan2(p.vy, p.vx);
-
               return Positioned(
                 left: left,
                 bottom: bottom,
