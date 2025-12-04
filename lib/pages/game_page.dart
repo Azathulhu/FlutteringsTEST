@@ -48,10 +48,11 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   //final int maxActiveEnemies = 6;
   int maxActiveEnemies = 6;
 
-
-
   // Timing
   late DateTime _lastTime;
+
+  List<Projectile> projectiles = [];
+  Weapon? equippedWeapon;
 
   @override
   void initState() {
@@ -149,6 +150,42 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     final now = DateTime.now();
     double dt = now.difference(_lastTime).inMilliseconds / 1000.0;
     _lastTime = now;
+    dt = dt.clamp(0.016, 0.033);
+  
+    if (!paused && !gameOver) {
+      _updateSpawner(dt);
+      _updateEnemies(dt);
+  
+      // Weapon update
+      equippedWeapon?.x = character.x + character.width / 2;
+      equippedWeapon?.y = character.y + character.height / 2;
+      equippedWeapon?.update(dt, enemies, projectiles);
+  
+      // Update projectiles
+      for (int i = projectiles.length - 1; i >= 0; i--) {
+        final p = projectiles[i];
+        p.update(dt);
+        for (var e in enemies) {
+          if (p.x < e.x + e.width &&
+              p.x + 24 > e.x &&
+              p.y < e.y + e.height &&
+              p.y + 24 > e.y) {
+            e.currentHealth -= p.damage;
+            p.active = false;
+          }
+        }
+        if (!p.active) projectiles.removeAt(i);
+      }
+  
+      character.y += character.vy * dt;
+      _checkGameOver();
+      setState(() {});
+    }
+  }
+  /*void _gameTick() {
+    final now = DateTime.now();
+    double dt = now.difference(_lastTime).inMilliseconds / 1000.0;
+    _lastTime = now;
   
     // Clamp dt to avoid physics glitches (slow-mo or spikes)
     dt = dt.clamp(0.016, 0.033); // ~30–60 FPS
@@ -166,22 +203,8 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       _checkGameOver();
       setState(() {});
     }
-  }
-
-
-  /*void _gameTick() {
-    final now = DateTime.now();
-    final dt = (now.difference(_lastTime).inMilliseconds / 1000.0).clamp(0.001, 0.05);
-    _lastTime = now;
-
-    if (!paused && !gameOver) {
-      _updateSpawner(dt);
-      _updateEnemies(dt);
-      _checkGameOver();
-      setState(() {});
-    }
   }*/
-
+  
   void _updateSpawner(double dt) {
     if (spawnPool.isEmpty) return;
     nextSpawnIn -= dt;
