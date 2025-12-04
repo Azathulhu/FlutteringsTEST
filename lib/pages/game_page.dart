@@ -10,6 +10,8 @@ import '../game/platform.dart';
 import '../game/enemy.dart';
 import '../game/projectile.dart';
 import '../game/weapon.dart';
+import '../services/weapon_service.dart'; // adjust path to match your project
+
 
 import '../services/enemy_service.dart';
 import 'level_selection_page.dart';
