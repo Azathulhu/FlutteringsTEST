@@ -56,6 +56,12 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   double timeSinceLastShot = 0.0;
   double weaponAngle = 0.0; // stores rotation of weapon
 
+  // scaling constants (change these to scale more/less)
+  final double weaponW = 48.0;
+  final double weaponH = 24.0;
+  final double projW = 48.0;
+  final double projH = 24.0;
+
   @override
   void initState() {
     super.initState();
@@ -90,24 +96,27 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
     timeSinceLastShot += dt;
 
-    // Find nearest enemy
+    // Find nearest enemy by Euclidean distance (more accurate than sum of abs)
     enemies.sort((a, b) {
-      double da = ((a.x - character.x).abs() + (a.y - character.y).abs());
-      double db = ((b.x - character.x).abs() + (b.y - character.y).abs());
+      double da = sqrt(pow((a.x + a.width/2) - (character.x + character.width/2), 2) +
+          pow((a.y + a.height/2) - (character.y + character.height/2), 2));
+      double db = sqrt(pow((b.x + b.width/2) - (character.x + character.width/2), 2) +
+          pow((b.y + b.height/2) - (character.y + character.height/2), 2));
       return da.compareTo(db);
     });
 
     final target = enemies.first;
 
-    // Calculate weapon rotation
-    double dx = target.x + target.width / 2 - (character.x + character.width / 2);
-    double dy = target.y + target.height / 2 - (character.y + character.height / 2);
+    // Calculate weapon rotation (aim at center of target)
+    double dx = (target.x + target.width / 2) - (character.x + character.width / 2);
+    double dy = (target.y + target.height / 2) - (character.y + character.height / 2);
     weaponAngle = atan2(dy, dx);
 
-    // Auto-shoot
-    double fireInterval = 1 / equippedWeapon!.fireRate;
+    // Auto-shoot (spawn projectile centered on character)
+    double fireInterval = 1 / max(0.0001, equippedWeapon!.fireRate);
     if (timeSinceLastShot >= fireInterval) {
       timeSinceLastShot = 0;
+      // spawn projectile at character center
       Projectile proj = Projectile(
         x: character.x + character.width / 2,
         y: character.y + character.height / 2,
@@ -116,33 +125,59 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         spritePath: equippedWeapon!.projectile.spritePath,
       );
       double dist = sqrt(dx * dx + dy * dy);
+      if (dist == 0) dist = 0.0001;
       proj.vx = dx / dist * proj.speed;
       proj.vy = dy / dist * proj.speed;
 
       activeProjectiles.add(proj);
     }
 
-    // Update projectiles
+    // Update projectiles robustly: mark removal with flag to avoid mid-loop issues
     for (int i = activeProjectiles.length - 1; i >= 0; i--) {
       final p = activeProjectiles[i];
       p.update(dt);
 
+      bool shouldRemove = false;
+
+      // collision check (use actual scaled projectile hitbox for accuracy)
       for (int j = enemies.length - 1; j >= 0; j--) {
         final e = enemies[j];
-        if (p.x < e.x + e.width &&
-            p.x + 20 > e.x &&
-            p.y < e.y + e.height &&
-            p.y + 20 > e.y) {
+        // projectile hitbox (using projectile width/height)
+        final pLeft = p.x - projW / 2;
+        final pRight = p.x + projW / 2;
+        final pTop = p.y - projH / 2;
+        final pBottom = p.y + projH / 2;
+
+        final eLeft = e.x;
+        final eRight = e.x + e.width;
+        final eTop = e.y;
+        final eBottom = e.y + e.height;
+
+        if (!(pRight < eLeft || pLeft > eRight || pBottom < eTop || pTop > eBottom)) {
+          // collision!
           e.currentHealth -= p.damage;
-          activeProjectiles.removeAt(i);
+          shouldRemove = true;
+
           if (e.currentHealth <= 0) {
+            // remove enemy immediately
             enemies.removeAt(j);
           }
-          break;
+          break; // no need to check other enemies for this projectile
         }
       }
 
-      if (p.x < 0 || p.x > screenWidth || p.y < 0 || p.y > screenHeight) {
+      // Off-screen removal: let projectile travel until completely out of screen bounds
+      if (!shouldRemove) {
+        // Here, we consider it out when its center crosses bounds +/- half-size
+        if (p.x + projW / 2 < 0 ||
+            p.x - projW / 2 > screenWidth ||
+            p.y + projH / 2 < 0 ||
+            p.y - projH / 2 > screenHeight) {
+          shouldRemove = true;
+        }
+      }
+
+      if (shouldRemove) {
         activeProjectiles.removeAt(i);
       }
     }
@@ -203,7 +238,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         else if (tiltX < -0.1) character.facingRight = false;
 
         world.update(tiltX);
-        updateWeapon(0.016); // update weapon every frame
+        // updateWeapon will also be called in _gameTick with the real dt
       }
     });
   }
@@ -370,37 +405,52 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
               child: character.buildWidget(),
             ),
 
-            // Weapon sprite
-            // Weapon sprite on top of the character
+            // Weapon sprite (drawn on top of character)
             if (equippedWeapon != null)
               Positioned(
-                left: character.x + character.width / 2 - 24, // half of new width (48 / 2)
-                top: character.y - 24, // place above character
+                // keep same coordinate system as character: use bottom-based positioning
+                bottom: screenHeight - (character.y + character.height / 2) - weaponH / 2,
+                left: character.x + character.width / 2 - weaponW / 2,
                 child: Transform.rotate(
                   angle: weaponAngle,
                   alignment: Alignment.center,
-                  child: Image.asset(
-                    equippedWeapon!.spritePath,
-                    width: 48,  // scaled up from 16 -> 48
-                    height: 24, // scaled up from 8 -> 24
+                  child: SizedBox(
+                    width: weaponW,
+                    height: weaponH,
+                    child: Image.asset(
+                      equippedWeapon!.spritePath,
+                      fit: BoxFit.fill,
+                      filterQuality: FilterQuality.none,
+                    ),
                   ),
                 ),
               ),
-            
-            // Projectiles
-            ...activeProjectiles.map((p) => Positioned(
-              left: p.x - 16, // half of scaled projectile width (32)
-              top: p.y - 8,   // half of scaled projectile height (16)
-              child: Transform.rotate(
-                angle: atan2(p.vy, p.vx), // rotate toward movement direction
-                alignment: Alignment.center,
-                child: Image.asset(
-                  p.spritePath,
-                  width: 48,  // scaled up from 16 -> 48
-                  height: 24, // scaled up from 8 -> 24
+
+            // Projectiles (scaled and rotated so tip faces velocity)
+            ...activeProjectiles.map((p) {
+              // position projectiles in same coordinate system (convert to bottom-based)
+              final left = p.x - projW / 2;
+              final bottom = screenHeight - p.y - projH / 2;
+              final angle = atan2(p.vy, p.vx);
+
+              return Positioned(
+                left: left,
+                bottom: bottom,
+                child: Transform.rotate(
+                  angle: angle, // no extra +pi; if tip faces opposite, change to angle + pi
+                  alignment: Alignment.center,
+                  child: SizedBox(
+                    width: projW,
+                    height: projH,
+                    child: Image.asset(
+                      p.spritePath,
+                      fit: BoxFit.fill,
+                      filterQuality: FilterQuality.none,
+                    ),
+                  ),
                 ),
-              ),
-            )),
+              );
+            }),
 
             // Health bar
             Positioned(
