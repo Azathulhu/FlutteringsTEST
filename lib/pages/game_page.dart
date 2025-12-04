@@ -60,6 +60,8 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   List<Projectile> activeProjectiles = [];
   double timeSinceLastShot = 0.0;
 
+  double weaponAngle = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -88,6 +90,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     }
   }
 
+  // update the updateWeapon() function
   void updateWeapon(double dt) {
     if (equippedWeapon == null || enemies.isEmpty) return;
   
@@ -105,7 +108,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     // Weapon rotation
     double dx = target.x + target.width / 2 - (character.x + character.width / 2);
     double dy = target.y + target.height / 2 - (character.y + character.height / 2);
-    double angle = atan2(dy, dx);
+    weaponAngle = atan2(dy, dx);
   
     // Auto-shoot
     double fireInterval = 1 / equippedWeapon!.fireRate;
@@ -401,19 +404,20 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
             ),
 
                         // Weapon sprite in hand
-            Positioned(
-              left: character.x + character.width / 2 - 16,
-              top: character.y + character.height / 2 - 16,
-              child: Transform.rotate(
-                angle: angle, // calculated from updateWeapon()
-                alignment: Alignment.center,
-                child: Image.asset(
-                  equippedWeapon!.spritePath,
-                  width: 32,
-                  height: 32,
+            if (equippedWeapon != null)
+              Positioned(
+                left: character.x + character.width / 2 - 16,
+                top: character.y + character.height / 2 - 16,
+                child: Transform.rotate(
+                  angle: weaponAngle, // now uses field instead of undefined "angle"
+                  alignment: Alignment.center,
+                  child: Image.asset(
+                    equippedWeapon!.spritePath,
+                    width: 32,
+                    height: 32,
+                  ),
                 ),
               ),
-            ),
             
             // Projectiles
             ...activeProjectiles.map((p) => p.buildWidget()),
