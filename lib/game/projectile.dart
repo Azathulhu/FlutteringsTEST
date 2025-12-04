@@ -1,14 +1,14 @@
+// lib/game/projectile.dart
 import 'package:flutter/material.dart';
 
 class Projectile {
   double x;
   double y;
-  final double speed;
-  final int damage;
+  double vx;
+  double vy;
+  double speed;
+  int damage;
   final String spritePath;
-  double vx = 0;
-  double vy = 0;
-  bool active = true;
 
   Projectile({
     required this.x,
@@ -16,6 +16,8 @@ class Projectile {
     required this.speed,
     required this.damage,
     required this.spritePath,
+    this.vx = 0,
+    this.vy = 0,
   });
 
   void update(double dt) {
@@ -29,9 +31,10 @@ class Projectile {
       top: y,
       child: Image.asset(
         spritePath,
-        width: 20,
-        height: 20,
-        fit: BoxFit.contain,
+        width: 16,
+        height: 16,
+        fit: BoxFit.fill,
+        filterQuality: FilterQuality.none,
       ),
     );
   }
