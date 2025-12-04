@@ -68,9 +68,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     maxActiveEnemies = widget.subLevel['max_active_enemies'] ?? 6;
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await loadCharacter();
-      await loadWeapon();
-      await prepareSpawnPool();
+      await _loadGameData(); // load everything async, precache images
       nextSpawnIn = 0.5 + random.nextDouble();
       startGameLoop();
     });
@@ -83,123 +81,34 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     super.dispose();
   }
 
-  Future<void> loadWeapon() async {
-    final weaponService = WeaponService();
-    final user = supabase.auth.currentUser;
-    if (user != null) {
-      equippedWeapon = await weaponService.getUserWeapon(user.id);
-    }
-  }
-
-  void updateWeapon(double dt) {
-    if (equippedWeapon == null || enemies.isEmpty) return;
-
-    timeSinceLastShot += dt;
-
-    // Find nearest enemy by Euclidean distance (more accurate than sum of abs)
-    enemies.sort((a, b) {
-      double da = sqrt(pow((a.x + a.width/2) - (character.x + character.width/2), 2) +
-          pow((a.y + a.height/2) - (character.y + character.height/2), 2));
-      double db = sqrt(pow((b.x + b.width/2) - (character.x + character.width/2), 2) +
-          pow((b.y + b.height/2) - (character.y + character.height/2), 2));
-      return da.compareTo(db);
-    });
-
-    final target = enemies.first;
-
-    // Calculate weapon rotation (aim at center of target)
-    double dx = (target.x + target.width / 2) - (character.x + character.width / 2);
-    double dy = (target.y + target.height / 2) - (character.y + character.height / 2);
-    weaponAngle = atan2(dy, dx);
-
-    // Auto-shoot (spawn projectile centered on character)
-    double fireInterval = 1 / max(0.0001, equippedWeapon!.fireRate);
-    if (timeSinceLastShot >= fireInterval) {
-      timeSinceLastShot = 0;
-      // spawn projectile at character center
-      Projectile proj = Projectile(
-        x: character.x + character.width / 2,
-        y: character.y + character.height / 2,
-        speed: equippedWeapon!.projectile.speed,
-        damage: equippedWeapon!.damage,
-        spritePath: equippedWeapon!.projectile.spritePath,
-      );
-      double dist = sqrt(dx * dx + dy * dy);
-      if (dist == 0) dist = 0.0001;
-      proj.vx = dx / dist * proj.speed;
-      proj.vy = dy / dist * proj.speed;
-
-      activeProjectiles.add(proj);
-    }
-
-    // Update projectiles robustly: mark removal with flag to avoid mid-loop issues
-    for (int i = activeProjectiles.length - 1; i >= 0; i--) {
-      final p = activeProjectiles[i];
-      p.update(dt);
-
-      bool shouldRemove = false;
-
-      // collision check (use actual scaled projectile hitbox for accuracy)
-      for (int j = enemies.length - 1; j >= 0; j--) {
-        final e = enemies[j];
-        // projectile hitbox (using projectile width/height)
-        final pLeft = p.x - projW / 2;
-        final pRight = p.x + projW / 2;
-        final pTop = p.y - projH / 2;
-        final pBottom = p.y + projH / 2;
-
-        final eLeft = e.x;
-        final eRight = e.x + e.width;
-        final eTop = e.y;
-        final eBottom = e.y + e.height;
-
-        if (!(pRight < eLeft || pLeft > eRight || pBottom < eTop || pTop > eBottom)) {
-          // collision!
-          e.currentHealth -= p.damage;
-          shouldRemove = true;
-
-          if (e.currentHealth <= 0) {
-            // remove enemy immediately
-            enemies.removeAt(j);
-          }
-          break; // no need to check other enemies for this projectile
-        }
-      }
-
-      // Off-screen removal: let projectile travel until completely out of screen bounds
-      if (!shouldRemove) {
-        // Here, we consider it out when its center crosses bounds +/- half-size
-        if (p.x + projW / 2 < 0 ||
-            p.x - projW / 2 > screenWidth ||
-            p.y + projH / 2 < 0 ||
-            p.y - projH / 2 > screenHeight) {
-          shouldRemove = true;
-        }
-      }
-
-      if (shouldRemove) {
-        activeProjectiles.removeAt(i);
-      }
-    }
-  }
-
-  Future<void> prepareSpawnPool() async {
-    final enemyService = EnemyService();
-    spawnPool = await enemyService.loadSpawnPoolForSubLevel(
-      widget.subLevel['id'],
-      0,
-      -120,
-    );
-  }
-
-  Future<void> loadCharacter() async {
+  Future<void> _loadGameData() async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
-    final meta = await supabase.from('users_meta').select().eq('user_id', user.id).maybeSingle();
+    // 1. Load user meta
+    final metaFuture = supabase.from('users_meta').select().eq('user_id', user.id).maybeSingle();
+
+    // 2. Load weapon and spawn pool in parallel
+    final weaponService = WeaponService();
+    final enemyService = EnemyService();
+
+    final results = await Future.wait([
+      weaponService.getUserWeapon(user.id), // weapon
+      enemyService.loadSpawnPoolForSubLevel(widget.subLevel['id'], 0, -120), // spawn pool
+      metaFuture,
+    ]);
+
+    equippedWeapon = results[0] as Weapon?;
+    spawnPool = results[1] as List<SpawnEntry>;
+    final meta = results[2];
+
     if (meta == null || meta['selected_character_id'] == null) return;
 
-    final charData = await supabase.from('characters').select().eq('id', meta['selected_character_id']).maybeSingle();
+    // 3. Load character
+    final charData = await supabase.from('characters')
+        .select()
+        .eq('id', meta['selected_character_id'])
+        .maybeSingle();
     if (charData == null) return;
 
     screenWidth = MediaQuery.of(context).size.width;
@@ -224,6 +133,91 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     );
 
     _addStartingPlatform();
+
+    // 4. Pre-cache all images before starting
+    List<Future> precacheFutures = [];
+    precacheFutures.add(precacheImage(AssetImage(character.spritePath), context));
+    if (equippedWeapon != null) {
+      precacheFutures.add(precacheImage(AssetImage(equippedWeapon!.spritePath), context));
+      precacheFutures.add(precacheImage(AssetImage(equippedWeapon!.projectile.spritePath), context));
+    }
+    for (final enemy in spawnPool) {
+      precacheFutures.add(precacheImage(AssetImage(enemy.spritePath), context));
+    }
+
+    await Future.wait(precacheFutures);
+  }
+
+  void updateWeapon(double dt) {
+    if (equippedWeapon == null || enemies.isEmpty) return;
+
+    timeSinceLastShot += dt;
+
+    enemies.sort((a, b) {
+      double da = sqrt(pow((a.x + a.width/2) - (character.x + character.width/2), 2) +
+          pow((a.y + a.height/2) - (character.y + character.height/2), 2));
+      double db = sqrt(pow((b.x + b.width/2) - (character.x + character.width/2), 2) +
+          pow((b.y + b.height/2) - (character.y + character.height/2), 2));
+      return da.compareTo(db);
+    });
+
+    final target = enemies.first;
+
+    double dx = (target.x + target.width / 2) - (character.x + character.width / 2);
+    double dy = (target.y + target.height / 2) - (character.y + character.height / 2);
+    weaponAngle = atan2(dy, dx);
+
+    double fireInterval = 1 / max(0.0001, equippedWeapon!.fireRate);
+    if (timeSinceLastShot >= fireInterval) {
+      timeSinceLastShot = 0;
+      Projectile proj = Projectile(
+        x: character.x + character.width / 2,
+        y: character.y + character.height / 2,
+        speed: equippedWeapon!.projectile.speed,
+        damage: equippedWeapon!.damage,
+        spritePath: equippedWeapon!.projectile.spritePath,
+      );
+      double dist = sqrt(dx * dx + dy * dy);
+      if (dist == 0) dist = 0.0001;
+      proj.vx = dx / dist * proj.speed;
+      proj.vy = dy / dist * proj.speed;
+
+      activeProjectiles.add(proj);
+    }
+
+    for (int i = activeProjectiles.length - 1; i >= 0; i--) {
+      final p = activeProjectiles[i];
+      p.update(dt);
+
+      bool shouldRemove = false;
+      for (int j = enemies.length - 1; j >= 0; j--) {
+        final e = enemies[j];
+
+        final pLeft = p.x - projW / 2;
+        final pRight = p.x + projW / 2;
+        final pTop = p.y - projH / 2;
+        final pBottom = p.y + projH / 2;
+
+        final eLeft = e.x;
+        final eRight = e.x + e.width;
+        final eTop = e.y;
+        final eBottom = e.y + e.height;
+
+        if (!(pRight < eLeft || pLeft > eRight || pBottom < eTop || pTop > eBottom)) {
+          e.currentHealth -= p.damage;
+          shouldRemove = true;
+          if (e.currentHealth <= 0) enemies.removeAt(j);
+          break;
+        }
+      }
+
+      if (!shouldRemove &&
+          (p.x + projW/2 < 0 || p.x - projW/2 > screenWidth || p.y + projH/2 < 0 || p.y - projH/2 > screenHeight)) {
+        shouldRemove = true;
+      }
+
+      if (shouldRemove) activeProjectiles.removeAt(i);
+    }
   }
 
   void startGameLoop() {
@@ -236,9 +230,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         double tiltX = -event.x;
         if (tiltX > 0.1) character.facingRight = true;
         else if (tiltX < -0.1) character.facingRight = false;
-
         world.update(tiltX);
-        // updateWeapon will also be called in _gameTick with the real dt
       }
     });
   }
@@ -253,9 +245,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       _updateSpawner(dt);
       _updateEnemies(dt);
       updateWeapon(dt);
-
       character.y += character.vy * dt;
-
       _checkGameOver();
       setState(() {});
     }
@@ -404,11 +394,8 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
               left: character.x,
               child: character.buildWidget(),
             ),
-
-            // Weapon sprite (drawn on top of character)
             if (equippedWeapon != null)
               Positioned(
-                // keep same coordinate system as character: use bottom-based positioning
                 bottom: screenHeight - (character.y + character.height / 2) - weaponH / 2,
                 left: character.x + character.width / 2 - weaponW / 2,
                 child: Transform.rotate(
@@ -425,10 +412,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
                   ),
                 ),
               ),
-
-            // Projectiles (scaled and rotated so tip faces velocity)
             ...activeProjectiles.map((p) {
-              // position projectiles in same coordinate system (convert to bottom-based)
               final left = p.x - projW / 2;
               final bottom = screenHeight - p.y - projH / 2;
               final angle = atan2(p.vy, p.vx);
@@ -437,7 +421,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
                 left: left,
                 bottom: bottom,
                 child: Transform.rotate(
-                  angle: angle, // no extra +pi; if tip faces opposite, change to angle + pi
+                  angle: angle,
                   alignment: Alignment.center,
                   child: SizedBox(
                     width: projW,
@@ -451,8 +435,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
                 ),
               );
             }),
-
-            // Health bar
             Positioned(
               bottom: 20,
               right: 20,
