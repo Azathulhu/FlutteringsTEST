@@ -8,6 +8,8 @@ import '../game/character.dart';
 import '../game/world.dart';
 import '../game/platform.dart';
 import '../game/enemy.dart';
+import '../game/weapon.dart'; // <-- add this line
+
 import '../services/enemy_service.dart';
 import 'level_selection_page.dart';
 
