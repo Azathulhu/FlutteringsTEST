@@ -374,34 +374,34 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
             // Weapon sprite on top of the character
             if (equippedWeapon != null)
               Positioned(
-                left: character.x + character.width / 2 - 16, // half of new width
-                top: character.y - 16, // place above the character
+                left: character.x + character.width / 2 - 24, // half of new width (48 / 2)
+                top: character.y - 24, // place above character
                 child: Transform.rotate(
-                  angle: weaponAngle, // weapon rotation
+                  angle: weaponAngle,
                   alignment: Alignment.center,
                   child: Image.asset(
                     equippedWeapon!.spritePath,
-                    width: 32,  // scaled up from 16
-                    height: 16, // scaled up from 8
+                    width: 48,  // scaled up from 16 -> 48
+                    height: 24, // scaled up from 8 -> 24
                   ),
                 ),
               ),
-
-            // Projectiles
+            
             // Projectiles
             ...activeProjectiles.map((p) => Positioned(
-              left: p.x - 16, // offset by half width of projectile
-              top: p.y - 8,   // offset by half height of projectile
+              left: p.x - 16, // half of scaled projectile width (32)
+              top: p.y - 8,   // half of scaled projectile height (16)
               child: Transform.rotate(
                 angle: atan2(p.vy, p.vx), // rotate toward movement direction
                 alignment: Alignment.center,
                 child: Image.asset(
                   p.spritePath,
-                  width: 32,  // scaled up
-                  height: 16, // scaled up
+                  width: 48,  // scaled up from 16 -> 48
+                  height: 24, // scaled up from 8 -> 24
                 ),
               ),
             )),
+
             // Health bar
             Positioned(
               bottom: 20,
