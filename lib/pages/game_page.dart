@@ -204,19 +204,20 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   }
 
   void updateWeapon(double dt) {
-    if (equippedWeapon == null || enemies.isEmpty) return;
+  timeSinceLastShot += dt;
 
-    timeSinceLastShot += dt;
-
+  // Only handle targeting/shooting when enemies exist
+  if (equippedWeapon != null && enemies.isNotEmpty) {
     enemies.sort((a, b) {
-      double da = sqrt(pow((a.x + a.width/2) - (character.x + character.width/2), 2) +
-          pow((a.y + a.height/2) - (character.y + character.height/2), 2));
-      double db = sqrt(pow((b.x + b.width/2) - (character.x + character.width/2), 2) +
-          pow((b.y + b.height/2) - (character.y + character.height/2), 2));
+      double da = ((a.x + a.width/2) - (character.x + character.width/2)).abs() +
+                  ((a.y + a.height/2) - (character.y + character.height/2)).abs();
+      double db = ((b.x + b.width/2) - (character.x + character.width/2)).abs() +
+                  ((b.y + b.height/2) - (character.y + character.height/2)).abs();
       return da.compareTo(db);
     });
 
     final target = enemies.first;
+
     double dx = (target.x + target.width / 2) - (character.x + character.width / 2);
     double dy = (target.y + target.height / 2) - (character.y + character.height / 2);
     weaponAngle = atan2(dy, dx);
@@ -232,48 +233,58 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         damage: equippedWeapon!.damage,
         spritePath: equippedWeapon!.projectile.spritePath,
       );
+
       double dist = sqrt(dx * dx + dy * dy);
-      if (dist == 0) dist = 0.0001;
       proj.vx = dx / dist * proj.speed;
       proj.vy = dy / dist * proj.speed;
 
       activeProjectiles.add(proj);
     }
+  }
 
-    for (int i = activeProjectiles.length - 1; i >= 0; i--) {
-      final p = activeProjectiles[i];
-      p.update(dt);
+  // ALWAYS update projectiles even if no enemies exist
+  for (int i = activeProjectiles.length - 1; i >= 0; i--) {
+    final p = activeProjectiles[i];
+    p.update(dt);
 
-      bool shouldRemove = false;
-      for (int j = enemies.length - 1; j >= 0; j--) {
-        final e = enemies[j];
+    bool shouldRemove = false;
 
-        final pLeft = p.x - projW / 2;
-        final pRight = p.x + projW / 2;
-        final pTop = p.y - projH / 2;
-        final pBottom = p.y + projH / 2;
+    // collision only if enemies exist
+    for (int j = enemies.length - 1; j >= 0; j--) {
+      final e = enemies[j];
 
-        final eLeft = e.x;
-        final eRight = e.x + e.width;
-        final eTop = e.y;
-        final eBottom = e.y + e.height;
+      final pLeft = p.x - projW / 2;
+      final pRight = p.x + projW / 2;
+      final pTop = p.y - projH / 2;
+      final pBottom = p.y + projH / 2;
 
-        if (!(pRight < eLeft || pLeft > eRight || pBottom < eTop || pTop > eBottom)) {
-          e.currentHealth -= p.damage;
-          shouldRemove = true;
-          if (e.currentHealth <= 0) enemies.removeAt(j);
-          break;
-        }
+      final eLeft = e.x;
+      final eRight = e.x + e.width;
+      final eTop = e.y;
+      final eBottom = e.y + e.height;
+
+      if (!(pRight < eLeft || pLeft > eRight || pBottom < eTop || pTop > eBottom)) {
+        e.currentHealth -= p.damage;
+        shouldRemove = true;
+        if (e.currentHealth <= 0) enemies.removeAt(j);
+        break;
       }
-
-      if (!shouldRemove) {
-        if (p.x + projW / 2 < 0 || p.x - projW / 2 > screenWidth || p.y + projH / 2 < 0 || p.y - projH / 2 > screenHeight) {
-          shouldRemove = true;
-        }
-      }
-
-      if (shouldRemove) activeProjectiles.removeAt(i);
     }
+
+    // remove if off screen
+    if (!shouldRemove) {
+      if (p.x + projW / 2 < 0 ||
+          p.x - projW / 2 > screenWidth ||
+          p.y + projH / 2 < 0 ||
+          p.y - projH / 2 > screenHeight) {
+        shouldRemove = true;
+      }
+    }
+
+    if (shouldRemove) {
+      activeProjectiles.removeAt(i);
+    }
+  }
   }
 
   void _checkGameOver() {
