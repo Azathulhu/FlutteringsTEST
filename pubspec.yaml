@@ -49,3 +49,4 @@ flutter:
     - assets/enemies/
     - assets/weapons/
     - assets/weapons/projectiles/
+    - assets/enemies/projectiles/
