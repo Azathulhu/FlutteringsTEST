@@ -61,8 +61,11 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   final double projW = 48.0;
   final double projH = 24.0;
 
-  //for accele
-  double tiltX = 0.0; // store accelerometer input
+  // Accelerometer
+  double latestTiltX = 0.0;
+
+  // Gravity (can also come from Supabase or sublevel)
+  double gravity = 800.0;
 
   @override
   void initState() {
@@ -105,9 +108,9 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       y: screenHeight - spawnYOffset - 80,
       width: 80,
       height: 80,
-      jumpStrength: charData['jump_strength']?.toDouble() ?? 20,
+      jumpStrength: charData['jump_strength']?.toDouble() ?? 20.0,
       spritePath: charData['sprite_path'],
-      horizontalSpeedMultiplier: 2.0,
+      horizontalSpeedMultiplier: charData['horizontal_speed_multiplier']?.toDouble() ?? 200.0,
       maxHealth: (charData['max_health'] ?? 100) as int,
       currentHealth: (charData['current_health'] ?? 100) as int,
     );
@@ -145,20 +148,14 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     _controller = AnimationController(vsync: this)..addListener(_gameTick);
     _controller.repeat(min: 0, max: 1, period: Duration(milliseconds: 16));
 
+    // Accelerometer
     _accelerometerSubscription = accelerometerEvents.listen((event) {
-      tiltX = -event.x; // just store tilt
-      if (tiltX > 0.1) character.facingRight = true;
-      else if (tiltX < -0.1) character.facingRight = false;
-    });
-
-    /*_accelerometerSubscription = accelerometerEvents.listen((event) {
       if (!paused) {
-        double tiltX = -event.x;
-        if (tiltX > 0.1) character.facingRight = true;
-        else if (tiltX < -0.1) character.facingRight = false;
-        world.update(tiltX);
+        latestTiltX = -event.x;
+        if (latestTiltX > 0.1) character.facingRight = true;
+        else if (latestTiltX < -0.1) character.facingRight = false;
       }
-    });*/
+    });
   }
 
   void _gameTick() {
@@ -170,13 +167,12 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     if (!paused && !gameOver) {
       _updateSpawner(dt);
       _updateEnemies(dt);
+
+      // Update character physics based on Supabase stats + tilt
+      character.updatePhysics(dt, latestTiltX, gravity, screenWidth, screenHeight);
+
       updateWeapon(dt);
 
-      // --- updated character movement ---
-      character.updatePhysics(dt, tiltX);
-      //for world
-      world.update(tiltX);
-      
       _checkGameOver();
       setState(() {});
     }
@@ -200,7 +196,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       final e = enemies[i];
       e.update(character, dt);
 
-      // Update enemy projectiles separately
+      // Enemy projectiles
       for (int j = e.activeProjectiles.length - 1; j >= 0; j--) {
         final p = e.activeProjectiles[j];
         p.update(dt);
@@ -242,7 +238,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       });
 
       final target = enemies.first;
-
       double dx = (target.x + target.width / 2) - (character.x + character.width / 2);
       double dy = (target.y + target.height / 2) - (character.y + character.height / 2);
       weaponAngle = atan2(dy, dx);
@@ -421,7 +416,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
               left: e.x,
               child: e.buildWidget(),
             )),
-            // Enemy projectiles
             ...enemies.expand((e) => e.activeProjectiles.map((p) {
               final left = p.x - projW / 2;
               final bottom = screenHeight - p.y - projH / 2;
@@ -444,7 +438,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
                 ),
               );
             })),
-            // Player
             Positioned(
               bottom: screenHeight - character.y - character.height,
               left: character.x,
@@ -468,7 +461,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
                   ),
                 ),
               ),
-            // Player projectiles
             ...activeProjectiles.map((p) {
               final left = p.x - projW / 2;
               final bottom = screenHeight - p.y - projH / 2;
@@ -533,6 +525,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     );
   }
 }
+
 
 /*import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
