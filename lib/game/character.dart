@@ -58,6 +58,23 @@ class Character {
     currentHealth = maxHealth;
   }
 
+  //physics
+  void updatePhysics(double dt, double tiltInput) {
+    // Horizontal movement
+    x += tiltInput * horizontalSpeedMultiplier * dt * 200; // adjust 200 for speed
+  
+    // Vertical movement
+    y += vy * dt;
+  
+    // Gravity
+    vy += 1000 * dt; // tweak as needed
+  
+    // Clamp inside screen
+    x = x.clamp(0, 1920 - width); // assuming 1920 screen width
+    y = y.clamp(0, 1080 - height); // assuming 1080 screen height
+  }
+
+
   /// Widget to render the character with pixel-perfect scaling
   Widget buildWidget() {
     return SizedBox(
