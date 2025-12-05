@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'character.dart';
+import 'projectile.dart';
 
 enum EnemyState { descending, observing, rushing, cooldown }
 
@@ -30,6 +31,11 @@ class Enemy {
   double retractSpeed = 150.0; // pixels per second
   double retractDirX = 0.0;
   double retractDirY = 0.0;
+
+  //for drone and other shooter cunts
+  double shootCooldown = 0.0; // tracks when the drone can shoot again
+  List<Projectile> activeProjectiles = [];
+
 
   Enemy({
     required this.x,
