@@ -101,8 +101,176 @@ class Enemy {
     state = EnemyState.cooldown;
     stateTimer = 0;
   }
-
   void update(Character character, double dt) {
+    // --- handle smooth retraction first ---
+    if (isRetracting) {
+      final move = min(retractSpeed * dt, retractRemaining);
+      x += retractDirX * move;
+      y += retractDirY * move;
+      retractRemaining -= move;
+      if (retractRemaining <= 0) {
+        isRetracting = false;
+        vx = 0;
+        vy = 0;
+      }
+      return;
+    }
+  
+    stateTimer += dt;
+  
+    // Read behavior from JSON
+    final type = behavior['type'] ?? 'hunter';
+    final descendSpeed = (behavior['descend_speed'] ?? 60.0).toDouble();
+    final observeHeight = (behavior['observe_height'] ?? 180.0).toDouble();
+    final observeDuration = (behavior['observe_duration'] ?? 1.4).toDouble();
+    final cooldownDuration = (behavior['cooldown_duration'] ?? 1.0).toDouble();
+    final detectDistance = (behavior['detect_distance'] ?? 300.0).toDouble();
+    final stopDistance = (behavior['stop_distance'] ?? 24.0).toDouble();
+  
+    // Drone-specific JSON
+    final shootInterval = (behavior['shoot_interval'] ?? 0.0).toDouble();
+    final laserSpeed = (behavior['laser_speed'] ?? 0.0).toDouble();
+    final laserDamage = (behavior['laser_damage'] ?? 0).toInt();
+    final laserSprite = behavior['laser_sprite'] ?? '';
+  
+    // --- State machine ---
+    switch (state) {
+      case EnemyState.descending:
+        vy = descendSpeed;
+        y += vy * dt;
+        if (y >= observeHeight) {
+          y = observeHeight;
+          vy = 0;
+          vx = 0;
+          state = EnemyState.observing;
+          stateTimer = 0;
+          _pickObserveTargetNear(character, behavior['observe_offset']?.toDouble() ?? 100);
+        }
+        break;
+  
+      case EnemyState.observing:
+        // movement towards observeTarget
+        final dx = observeTargetX - x;
+        final dy = observeTargetY - y;
+        final dist = sqrt(dx * dx + dy * dy);
+        if (dist > 1.0) {
+          vx = dx / dist * (behavior['observe_speed']?.toDouble() ?? 50);
+          vy = dy / dist * (behavior['observe_speed']?.toDouble() ?? 50);
+        } else {
+          vx *= 0.9;
+          vy *= 0.9;
+        }
+        x += vx * dt;
+        y += vy * dt;
+  
+        // --- dynamic action based on type ---
+        if (type == 'hunter') {
+          final pdx = character.x - x;
+          final pdy = character.y - y;
+          final pdist = sqrt(pdx * pdx + pdy * pdy);
+          if (pdist <= detectDistance) {
+            state = EnemyState.rushing;
+            stateTimer = 0;
+          } else if (stateTimer >= observeDuration) {
+            _pickObserveTargetNear(character, behavior['observe_offset']?.toDouble() ?? 100);
+            stateTimer = 0;
+          }
+        } else if (type == 'drone') {
+          // shooting logic
+          shootCooldown += dt;
+          if (shootInterval > 0 && shootCooldown >= shootInterval) {
+            shootCooldown = 0;
+  
+            Projectile proj = Projectile(
+              x: x + width / 2,
+              y: y + height / 2,
+              speed: laserSpeed,
+              damage: laserDamage,
+              spritePath: laserSprite,
+            );
+  
+            final dx = (character.x + character.width / 2) - (x + width / 2);
+            final dy = (character.y + character.height / 2) - (y + height / 2);
+            final dist = sqrt(dx * dx + dy * dy);
+            if (dist > 0) {
+              proj.vx = dx / dist * proj.speed;
+              proj.vy = dy / dist * proj.speed;
+            }
+  
+            activeProjectiles.add(proj);
+          }
+        }
+        break;
+  
+      case EnemyState.rushing:
+        if (type == 'hunter') {
+          final dxr = character.x - x;
+          final dyr = character.y - y;
+          final dr = sqrt(dxr * dxr + dyr * dyr);
+          if (dr > 1.0) {
+            vx = (dxr / dr) * (behavior['rush_speed']?.toDouble() ?? speed);
+            vy = (dyr / dr) * (behavior['rush_speed']?.toDouble() ?? speed);
+          }
+          x += vx * dt;
+          y += vy * dt;
+  
+          // collide with character
+          if ((x < character.x + character.width &&
+              x + width > character.x &&
+              y < character.y + character.height &&
+              y + height > character.y)) {
+            character.takeDamage(damage);
+  
+            // retract a bit
+            final dx = x - character.x;
+            final dy = y - character.y;
+            startRetract(dx, dy, 50);
+          }
+  
+          if (stateTimer >= (behavior['rush_duration']?.toDouble() ?? 0.9) || dr <= stopDistance) {
+            state = EnemyState.cooldown;
+            stateTimer = 0;
+            _pickObserveTargetNear(character, behavior['observe_offset']?.toDouble() ?? 100);
+          }
+        } else {
+          // Drone ignores rushing
+          state = EnemyState.observing;
+          stateTimer = 0;
+        }
+        break;
+  
+      case EnemyState.cooldown:
+        if (stateTimer >= cooldownDuration) {
+          state = EnemyState.observing;
+          stateTimer = 0;
+          _pickObserveTargetNear(character, behavior['observe_offset']?.toDouble() ?? 100);
+        }
+        break;
+    }
+  
+    // --- Update projectiles ---
+    for (int i = activeProjectiles.length - 1; i >= 0; i--) {
+      final p = activeProjectiles[i];
+      p.update(dt);
+  
+      // check collision with character
+      if (p.x >= character.x &&
+          p.x <= character.x + character.width &&
+          p.y >= character.y &&
+          p.y <= character.y + character.height) {
+        character.takeDamage(p.damage);
+        activeProjectiles.removeAt(i);
+        continue;
+      }
+  
+      // remove if offscreen
+      if (p.x < 0 || p.x > 1920 || p.y < 0 || p.y > 1080) {
+        activeProjectiles.removeAt(i);
+      }
+    }
+  }
+
+  /*void update(Character character, double dt) {
     // --- handle smooth retraction first ---
     if (isRetracting) {
       final move = min(retractSpeed * dt, retractRemaining);
@@ -217,7 +385,7 @@ class Enemy {
         }
         break;
     }
-  }
+  }*/
 
   void _pickObserveTargetNear(Character targetCharacter, double offset) {
     final ox = targetCharacter.x + (_randDouble(-offset, offset));
