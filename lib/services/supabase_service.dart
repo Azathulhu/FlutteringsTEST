@@ -15,6 +15,7 @@ class SupabaseService {
         'user_id': user.id,
         'username': username,
         'email': email,
+        'selected_weapon_id': 1,
       });
     }
 
