@@ -193,6 +193,12 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     for (int i = enemies.length - 1; i >= 0; i--) {
       final e = enemies[i];
       e.update(character, dt);
+
+      //projectile for enemies
+      // Merge enemy projectiles into main list
+      activeProjectiles.addAll(e.activeProjectiles);
+      e.activeProjectiles.clear();
+      
       if (e.y > screenHeight + 200) enemies.removeAt(i);
     }
 
