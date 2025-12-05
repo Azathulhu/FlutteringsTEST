@@ -61,6 +61,9 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   final double projW = 48.0;
   final double projH = 24.0;
 
+  //for accele
+  double tiltX = 0.0; // store accelerometer input
+
   @override
   void initState() {
     super.initState();
@@ -143,13 +146,19 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     _controller.repeat(min: 0, max: 1, period: Duration(milliseconds: 16));
 
     _accelerometerSubscription = accelerometerEvents.listen((event) {
+      tiltX = -event.x; // just store tilt
+      if (tiltX > 0.1) character.facingRight = true;
+      else if (tiltX < -0.1) character.facingRight = false;
+    });
+
+    /*_accelerometerSubscription = accelerometerEvents.listen((event) {
       if (!paused) {
         double tiltX = -event.x;
         if (tiltX > 0.1) character.facingRight = true;
         else if (tiltX < -0.1) character.facingRight = false;
         world.update(tiltX);
       }
-    });
+    });*/
   }
 
   void _gameTick() {
