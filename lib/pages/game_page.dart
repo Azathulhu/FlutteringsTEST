@@ -110,7 +110,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       height: 80,
       jumpStrength: charData['jump_strength']?.toDouble() ?? 20.0,
       spritePath: charData['sprite_path'],
-      horizontalSpeedMultiplier: charData['horizontal_speed_multiplier']?.toDouble() ?? 200.0,
+      horizontalSpeedMultiplier: charData['speed']?.toDouble() ?? 200.0,
       maxHealth: (charData['max_health'] ?? 100) as int,
       currentHealth: (charData['current_health'] ?? 100) as int,
     );
