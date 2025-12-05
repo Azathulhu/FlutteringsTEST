@@ -163,17 +163,23 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     double dt = now.difference(_lastTime).inMilliseconds / 1000.0;
     _lastTime = now;
     dt = dt.clamp(0.016, 0.033);
-
+  
     if (!paused && !gameOver) {
+      // Update spawner and enemies first
       _updateSpawner(dt);
       _updateEnemies(dt);
-
-      // Update character physics based on Supabase stats + tilt
-      character.updatePhysics(dt, latestTiltX, gravity, screenWidth, screenHeight);
-
+  
+      // **UPDATE WORLD AND CHARACTER PHYSICS**
+      // This replaces character.updatePhysics()
+      world.update(latestTiltX, dt);
+  
+      // Update weapon and projectiles
       updateWeapon(dt);
-
+  
+      // Check for game over
       _checkGameOver();
+  
+      // Refresh UI
       setState(() {});
     }
   }
