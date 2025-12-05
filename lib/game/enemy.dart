@@ -133,12 +133,6 @@ class Enemy {
     final detectDistance = (behavior['detect_distance'] ?? 300.0).toDouble();
     final stopDistance = (behavior['stop_distance'] ?? 24.0).toDouble();
   
-    // Drone-specific JSON
-    final shootInterval = (behavior['shoot_interval'] ?? 0.0).toDouble();
-    final laserSpeed = (behavior['laser_speed'] ?? 0.0).toDouble();
-    final laserDamage = (behavior['laser_damage'] ?? 0).toInt();
-    final laserSprite = behavior['laser_sprite'] ?? '';
-  
     // --- State machine ---
     switch (state) {
       case EnemyState.descending:
@@ -184,26 +178,29 @@ class Enemy {
         } else if (type == 'drone') {
           // shooting logic
           shootCooldown += dt;
-          if (shootInterval > 0 && shootCooldown >= shootInterval) {
+          if (behavior['shoot_interval'] != null && shootCooldown >= behavior['shoot_interval']) {
             shootCooldown = 0;
   
-            Projectile proj = Projectile(
-              x: x + width / 2,
-              y: y + height / 2,
-              speed: laserSpeed,
-              damage: laserDamage,
-              spritePath: laserSprite,
-            );
+            final projData = behavior['projectile'];
+            if (projData != null) {
+              Projectile proj = Projectile(
+                x: x + width / 2,
+                y: y + height / 2,
+                speed: projData['speed']?.toDouble() ?? 300,
+                damage: projData['damage']?.toInt() ?? 10,
+                spritePath: projData['sprite_path'] ?? '',
+              );
   
-            final dx = (character.x + character.width / 2) - (x + width / 2);
-            final dy = (character.y + character.height / 2) - (y + height / 2);
-            final dist = sqrt(dx * dx + dy * dy);
-            if (dist > 0) {
-              proj.vx = dx / dist * proj.speed;
-              proj.vy = dy / dist * proj.speed;
+              final dx = (character.x + character.width / 2) - (x + width / 2);
+              final dy = (character.y + character.height / 2) - (y + height / 2);
+              final dist = sqrt(dx * dx + dy * dy);
+              if (dist > 0) {
+                proj.vx = dx / dist * proj.speed;
+                proj.vy = dy / dist * proj.speed;
+              }
+  
+              activeProjectiles.add(proj);
             }
-  
-            activeProjectiles.add(proj);
           }
         }
         break;
