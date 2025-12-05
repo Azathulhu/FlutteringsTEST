@@ -172,8 +172,11 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       _updateEnemies(dt);
       updateWeapon(dt);
 
-      character.y += character.vy * dt;
-
+      // --- updated character movement ---
+      character.updatePhysics(dt, tiltX);
+      //for world
+      world.update(tiltX);
+      
       _checkGameOver();
       setState(() {});
     }
