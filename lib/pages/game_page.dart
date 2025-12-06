@@ -37,6 +37,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
   bool gameOver = false;
   bool paused = false;
+  bool levelComplete = false;
 
   final double spawnYOffset = 150;
   final Random random = Random();
@@ -206,6 +207,8 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         currentWave++;
         nextSpawnIn = 0.5;
       } else {
+        levelComplete = true; // <-- prevent repeated dialogs
+        paused = true;  
         _showCompleteDialog();
       }
     }
@@ -423,6 +426,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   void _restartGame() {
     paused = false;
     gameOver = false;
+    levelComplete = false;
     enemies.clear();
     activeProjectiles.clear();
     character.x = screenWidth / 2 - character.width / 2;
