@@ -14,14 +14,6 @@ import '../services/weapon_service.dart';
 import '../services/enemy_service.dart';
 import 'level_selection_page.dart';
 
-// --- Wave entry class ---
-class WaveEntry {
-  final Enemy prototype;
-  int remaining;
-
-  WaveEntry({required this.prototype, required this.remaining});
-}
-
 class GamePage extends StatefulWidget {
   final Map<String, dynamic> level;
   final Map<String, dynamic> subLevel;
@@ -53,6 +45,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   double nextSpawnIn = 0.0;
   final double minSpawnInterval = 1.0;
   final double maxSpawnInterval = 3.0;
+  int maxActiveEnemies = 6;
 
   late DateTime _lastTime;
 
@@ -66,25 +59,17 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   final double projW = 48.0;
   final double projH = 24.0;
 
-  // Accelerometer
-  double latestTiltX = 0.0;
-
-  // Gravity
+  double latestTiltX = 0.0; // accelerometer
   double gravity = 800.0;
 
-  // Waves
   int currentWave = 1;
   late int maxWaves;
   Map<int, List<WaveEntry>> wavePool = {};
-  int maxActiveEnemies = 6;
-
-  late EnemyService enemyService;
 
   @override
   void initState() {
     super.initState();
     maxActiveEnemies = widget.subLevel['max_active_enemies'] ?? 6;
-    enemyService = EnemyService();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _loadGameData();
@@ -101,8 +86,9 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _loadGameData() async {
+    final enemyService = EnemyService();
     wavePool = await enemyService.loadWavePool(widget.subLevel['id'], 0, -120);
-    maxWaves = wavePool.keys.length;
+    maxWaves = enemyService.getMaxWave(wavePool);
 
     final user = supabase.auth.currentUser;
     if (user == null) return;
@@ -141,9 +127,12 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     _addStartingPlatform();
 
     final weaponService = WeaponService();
-    equippedWeapon = await weaponService.getUserWeapon(user.id);
+    final results = await Future.wait([
+      weaponService.getUserWeapon(user.id),
+    ]);
 
-    // Precache images
+    equippedWeapon = results[0] as Weapon?;
+
     List<Future> precacheFutures = [];
     precacheFutures.add(precacheImage(AssetImage(character.spritePath), context));
     if (equippedWeapon != null) {
@@ -161,8 +150,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     _accelerometerSubscription = accelerometerEvents.listen((event) {
       if (!paused) {
         latestTiltX = -event.x;
-        if (latestTiltX > 0.1) character.facingRight = true;
-        else if (latestTiltX < -0.1) character.facingRight = false;
+        character.facingRight = latestTiltX > 0.1 ? true : (latestTiltX < -0.1 ? false : character.facingRight);
       }
     });
   }
@@ -188,22 +176,14 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
     nextSpawnIn -= dt;
     if (nextSpawnIn <= 0) {
-      // pick random enemy with remaining > 0
-      final available = wavePool[currentWave]!.where((w) => w.remaining > 0).toList();
-      if (available.isNotEmpty) {
-        final entry = available[random.nextInt(available.length)];
-        final spawnX = random.nextDouble() * (screenWidth - 80);
-        final spawnY = -60.0 - random.nextDouble() * 120.0;
-        enemies.add(entry.prototype.cloneAt(spawnX, spawnY));
-        entry.remaining--;
-
+      Enemy? spawned = EnemyService().pickRandomFromWave(wavePool[currentWave]!, random.nextDouble() * (screenWidth - 80), -60.0 - random.nextDouble() * 120);
+      if (spawned != null) {
+        enemies.add(spawned);
         nextSpawnIn = minSpawnInterval + random.nextDouble() * (maxSpawnInterval - minSpawnInterval);
       }
     }
 
-    // Check if wave complete
-    bool waveEmpty = wavePool[currentWave]!.every((w) => w.remaining <= 0) && enemies.isEmpty;
-    if (waveEmpty) {
+    if (EnemyService().isWaveComplete(wavePool[currentWave]!, enemies)) {
       if (currentWave < maxWaves) {
         currentWave++;
         nextSpawnIn = 0.5;
@@ -218,7 +198,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       final e = enemies[i];
       e.update(character, dt);
 
-      // Enemy projectiles
       for (int j = e.activeProjectiles.length - 1; j >= 0; j--) {
         final p = e.activeProjectiles[j];
         p.update(dt);
@@ -284,7 +263,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       }
     }
 
-    // Update player projectiles
     for (int i = activeProjectiles.length - 1; i >= 0; i--) {
       final p = activeProjectiles[i];
       p.update(dt);
@@ -293,7 +271,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
       for (int j = enemies.length - 1; j >= 0; j--) {
         final e = enemies[j];
-
         final pLeft = p.x - projW / 2;
         final pRight = p.x + projW / 2;
         final pTop = p.y - projH / 2;
@@ -321,9 +298,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         }
       }
 
-      if (shouldRemove) {
-        activeProjectiles.removeAt(i);
-      }
+      if (shouldRemove) activeProjectiles.removeAt(i);
     }
   }
 
@@ -437,13 +412,14 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     _addStartingPlatform();
     nextSpawnIn = 0.5;
 
-    // reset wave
-    wavePool.forEach((wave, list) {
-      for (var entry in list) {
-        entry.remaining = entry.prototype.behavior['count'] ?? 1;
+    currentWave = 1;
+
+    // Reset wavePool remaining counts
+    wavePool.forEach((wave, entries) {
+      for (var e in entries) {
+        e.remaining = e.prototype.maxHealth; // or store original quantity
       }
     });
-    currentWave = 1;
   }
 
   @override
@@ -561,7 +537,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
                 }),
               ),
             ),
-            // Health bar
+            // HP bar
             Positioned(
               bottom: 20,
               right: 20,
@@ -586,11 +562,10 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
                     ),
                     Center(
                       child: Text(
-                        "${character.currentHealth}/${character.maxHealth} HP",
+                        "${character.currentHealth}/${character.maxHealth}",
                         style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
                           fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -604,6 +579,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     );
   }
 }
+
 
 /*import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
