@@ -14,6 +14,14 @@ import '../services/weapon_service.dart';
 import '../services/enemy_service.dart';
 import 'level_selection_page.dart';
 
+// --- Wave entry class ---
+class WaveEntry {
+  final Enemy prototype;
+  int remaining;
+
+  WaveEntry({required this.prototype, required this.remaining});
+}
+
 class GamePage extends StatefulWidget {
   final Map<String, dynamic> level;
   final Map<String, dynamic> subLevel;
@@ -42,12 +50,9 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   final Random random = Random();
 
   List<Enemy> enemies = [];
-  List<SpawnEntry> spawnPool = [];
-
   double nextSpawnIn = 0.0;
   final double minSpawnInterval = 1.0;
   final double maxSpawnInterval = 3.0;
-  int maxActiveEnemies = 6;
 
   late DateTime _lastTime;
 
@@ -64,18 +69,22 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   // Accelerometer
   double latestTiltX = 0.0;
 
-  // Gravity (can also come from Supabase or sublevel)
+  // Gravity
   double gravity = 800.0;
 
+  // Waves
   int currentWave = 1;
   late int maxWaves;
   Map<int, List<WaveEntry>> wavePool = {};
-  double nextSpawnIn = 0;
+  int maxActiveEnemies = 6;
+
+  late EnemyService enemyService;
 
   @override
   void initState() {
     super.initState();
     maxActiveEnemies = widget.subLevel['max_active_enemies'] ?? 6;
+    enemyService = EnemyService();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _loadGameData();
@@ -92,10 +101,9 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _loadGameData() async {
-    final enemyService = EnemyService();
     wavePool = await enemyService.loadWavePool(widget.subLevel['id'], 0, -120);
     maxWaves = wavePool.keys.length;
-    
+
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
@@ -133,16 +141,9 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     _addStartingPlatform();
 
     final weaponService = WeaponService();
-    final enemyService = EnemyService();
+    equippedWeapon = await weaponService.getUserWeapon(user.id);
 
-    final results = await Future.wait([
-      weaponService.getUserWeapon(user.id),
-      enemyService.loadSpawnPoolForSubLevel(widget.subLevel['id'], 0, -120),
-    ]);
-
-    equippedWeapon = results[0] as Weapon?;
-    spawnPool = results[1] as List<SpawnEntry>;
-
+    // Precache images
     List<Future> precacheFutures = [];
     precacheFutures.add(precacheImage(AssetImage(character.spritePath), context));
     if (equippedWeapon != null) {
@@ -157,7 +158,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     _controller = AnimationController(vsync: this)..addListener(_gameTick);
     _controller.repeat(min: 0, max: 1, period: Duration(milliseconds: 16));
 
-    // Accelerometer
     _accelerometerSubscription = accelerometerEvents.listen((event) {
       if (!paused) {
         latestTiltX = -event.x;
@@ -172,53 +172,42 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     double dt = now.difference(_lastTime).inMilliseconds / 1000.0;
     _lastTime = now;
     dt = dt.clamp(0.016, 0.033);
-  
+
     if (!paused && !gameOver) {
-      // Update spawner and enemies first
       _updateSpawner(dt);
       _updateEnemies(dt);
-  
-      // **UPDATE WORLD AND CHARACTER PHYSICS**
-      // This replaces character.updatePhysics()
       world.update(latestTiltX, dt);
-  
-      // Update weapon and projectiles
       updateWeapon(dt);
-  
-      // Check for game over
       _checkGameOver();
-  
-      // Refresh UI
       setState(() {});
     }
   }
 
   void _updateSpawner(double dt) {
     if (wavePool[currentWave] == null || wavePool[currentWave]!.isEmpty) return;
-  
+
     nextSpawnIn -= dt;
     if (nextSpawnIn <= 0) {
-      // pick a random enemy with remaining > 0
+      // pick random enemy with remaining > 0
       final available = wavePool[currentWave]!.where((w) => w.remaining > 0).toList();
       if (available.isNotEmpty) {
-        final entry = available[Random().nextInt(available.length)];
-        final spawnX = Random().nextDouble() * (screenWidth - 80);
-        final spawnY = -60.0 - Random().nextDouble() * 120.0;
+        final entry = available[random.nextInt(available.length)];
+        final spawnX = random.nextDouble() * (screenWidth - 80);
+        final spawnY = -60.0 - random.nextDouble() * 120.0;
         enemies.add(entry.prototype.cloneAt(spawnX, spawnY));
         entry.remaining--;
-  
-        nextSpawnIn = minSpawnInterval + Random().nextDouble() * (maxSpawnInterval - minSpawnInterval);
+
+        nextSpawnIn = minSpawnInterval + random.nextDouble() * (maxSpawnInterval - minSpawnInterval);
       }
     }
-  
-    // check if wave is complete
+
+    // Check if wave complete
     bool waveEmpty = wavePool[currentWave]!.every((w) => w.remaining <= 0) && enemies.isEmpty;
     if (waveEmpty) {
       if (currentWave < maxWaves) {
         currentWave++;
         nextSpawnIn = 0.5;
       } else {
-        // all waves complete
         _showCompleteDialog();
       }
     }
@@ -407,7 +396,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       ),
     );
   }
-  
+
   void _showGameOverDialog() {
     showDialog(
       barrierDismissible: false,
@@ -447,6 +436,14 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     character.currentHealth = character.maxHealth;
     _addStartingPlatform();
     nextSpawnIn = 0.5;
+
+    // reset wave
+    wavePool.forEach((wave, list) {
+      for (var entry in list) {
+        entry.remaining = entry.prototype.behavior['count'] ?? 1;
+      }
+    });
+    currentWave = 1;
   }
 
   @override
@@ -544,7 +541,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
                 ),
               );
             }),
-            //waves
+            // Wave bar
             Positioned(
               top: 40,
               left: 20,
@@ -564,7 +561,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
                 }),
               ),
             ),
-
+            // Health bar
             Positioned(
               bottom: 20,
               right: 20,
@@ -607,6 +604,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     );
   }
 }
+
 /*import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sensors_plus/sensors_plus.dart';
