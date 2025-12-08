@@ -180,7 +180,7 @@ class Enemy {
           shootCooldown += dt;
           if (behavior['shoot_interval'] != null && shootCooldown >= behavior['shoot_interval']) {
             shootCooldown = 0;
-  
+        
             final projData = behavior['projectile'];
             if (projData != null) {
               Projectile proj = Projectile(
@@ -190,7 +190,7 @@ class Enemy {
                 damage: projData['damage']?.toInt() ?? 10,
                 spritePath: projData['sprite_path'] ?? '',
               );
-  
+        
               final dx = (character.x + character.width / 2) - (x + width / 2);
               final dy = (character.y + character.height / 2) - (y + height / 2);
               final dist = sqrt(dx * dx + dy * dy);
@@ -198,10 +198,45 @@ class Enemy {
                 proj.vx = dx / dist * proj.speed;
                 proj.vy = dy / dist * proj.speed;
               }
-  
+        
               activeProjectiles.add(proj);
             }
           }
+          //drone shit
+          final kiteDistance = (behavior['kite_distance'] ?? 260).toDouble();
+          final retreatDistance = (behavior['retreat_distance'] ?? 160).toDouble();
+          final kiteSpeed = (behavior['kite_speed'] ?? 70).toDouble();
+          final retreatSpeed = (behavior['retreat_speed'] ?? 120).toDouble();
+        
+          final dx = character.x - x;
+          final dy = character.y - y;
+          final dist = sqrt(dx * dx + dy * dy);
+        
+          // retreat when player too close
+          if (dist < retreatDistance) {
+            final rx = x - dx;
+            final ry = y - dy;
+            final rdist = sqrt(rx*rx + ry*ry);
+            vx = (rx / rdist) * retreatSpeed * 0.8;
+            vy = (ry / rdist) * retreatSpeed * 0.8;
+          }
+          // maintain distance (kite)
+          else if (dist < kiteDistance) {
+            final perpX = -dy;
+            final perpY = dx;
+            final perpLen = sqrt(perpX*perpX + perpY*perpY);
+        
+            vx = (perpX / perpLen) * kiteSpeed;
+            vy = (perpY / perpLen) * kiteSpeed;
+          }
+          // too far → move gently towards player
+          else {
+            vx = (dx / dist) * kiteSpeed * 0.5;
+            vy = (dy / dist) * kiteSpeed * 0.5;
+          }
+        
+          x += vx * dt;
+          y += vy * dt;
         }
         break;
   
