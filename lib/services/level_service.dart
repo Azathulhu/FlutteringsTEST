@@ -30,7 +30,7 @@ class LevelService {
             .from('user_levels')
             .select()
             .eq('user_id', user.id)
-            .filter('sub_level_id', 'in', prevSubLevelIds)
+            .in_('sub_level_id', prevSubLevelIds)
             .eq('is_completed', true);
 
         unlockedLevels.add({
@@ -59,7 +59,7 @@ class LevelService {
         .from('user_levels')
         .select()
         .eq('user_id', user.id)
-        .filter('sub_level_id', 'in', subLevelIds);
+        .in_('sub_level_id', subLevelIds);
 
     return subLevels.map((s) {
       final unlocked = unlockedRows.any((u) =>
@@ -85,6 +85,7 @@ class LevelService {
 
     if (current == null) return;
 
+    // 1️⃣ Unlock next sub-level in the same level
     final nextSubLevel = await supabase
         .from('sub_levels')
         .select()
@@ -99,10 +100,11 @@ class LevelService {
         'user_id': user.id,
         'sub_level_id': nextSubLevel['id'],
         'is_unlocked': true,
-      });
+      }, onConflict: ['user_id', 'sub_level_id']);
       return;
     }
 
+    // 2️⃣ If current level is finished, unlock first sub-level of next level
     final nextLevel = await supabase
         .from('levels')
         .select()
@@ -124,7 +126,7 @@ class LevelService {
           'user_id': user.id,
           'sub_level_id': firstSubLevel['id'],
           'is_unlocked': true,
-        });
+        }, onConflict: ['user_id', 'sub_level_id']);
       }
     }
   }
@@ -134,16 +136,18 @@ class LevelService {
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
+    // Mark current sub-level as completed
     await supabase.from('user_levels').upsert({
       'user_id': user.id,
       'sub_level_id': subLevelId,
       'is_completed': true,
       'is_unlocked': true,
-    });
+    }, onConflict: ['user_id', 'sub_level_id']);
 
+    // Unlock next sub-level
     await unlockNextSubLevel(subLevelId);
 
-    // Unlock next level if all sub-levels in current level are completed
+    // Check if all sub-levels in current level are completed
     final currentSubLevels = await supabase
         .from('sub_levels')
         .select()
@@ -162,7 +166,7 @@ class LevelService {
         .from('user_levels')
         .select()
         .eq('user_id', user.id)
-        .filter('sub_level_id', 'in', currentSubLevelIds)
+        .in_('sub_level_id', currentSubLevelIds)
         .eq('is_completed', true);
 
     if (completedRows.length == currentSubLevels.length) {
@@ -179,11 +183,12 @@ class LevelService {
         await supabase.from('users_meta').upsert({
           'user_id': user.id,
           'unlocked_levels': {'append': [nextLevel['id']]},
-        });
+        }, onConflict: ['user_id']);
       }
     }
   }
 }
+
 
 
 
