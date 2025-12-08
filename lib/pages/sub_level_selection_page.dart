@@ -27,11 +27,8 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
     });
   }
 
-  void _onSubLevelComplete(Map<String, dynamic> completedSub) async {
-    // Mark sub-level completed in DB
+  Future<void> _onSubLevelComplete(Map<String, dynamic> completedSub) async {
     await levelService.completeSubLevel(completedSub['id'], widget.level['id']);
-
-    // Reload sub-levels so the next one is unlocked
     await _loadSubLevels();
   }
 
@@ -52,7 +49,6 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
           return GestureDetector(
             onTap: sub['is_unlocked']
                 ? () async {
-                    // Open the game page
                     final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -63,7 +59,6 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
                       ),
                     );
 
-                    // If game completed, mark sub-level complete & reload
                     if (result == true) {
                       _onSubLevelComplete(sub);
                     }
@@ -96,6 +91,7 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
     );
   }
 }
+
 
 
 
