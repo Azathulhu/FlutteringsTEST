@@ -1,4 +1,3 @@
-// lib/pages/level_selection_page.dart
 import 'package:flutter/material.dart';
 import '../services/level_service.dart';
 import 'sub_level_selection_page.dart';
@@ -23,16 +22,18 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
   @override
   void initState() {
     super.initState();
-    loadLevels();
+    if (widget.preloadedLevels != null) {
+      levels = widget.preloadedLevels!;
+      loading = false;
+    } else {
+      loadLevels();
+    }
   }
 
   Future<void> loadLevels() async {
-    if (widget.preloadedLevels != null) {
-      levels = widget.preloadedLevels!;
-    } else {
-      levels = await _levelService.loadLevels();
-    }
+    final data = await _levelService.loadLevels();
     setState(() {
+      levels = data;
       loading = false;
     });
   }
@@ -54,36 +55,50 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
               onPageChanged: (i) => setState(() => currentPage = i),
               itemBuilder: (context, index) {
                 final level = levels[index];
+                final unlocked = level['is_unlocked'] == true;
 
                 return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => SubLevelSelectionPage(level: level),
+                  onTap: unlocked
+                      ? () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => SubLevelSelectionPage(
+                                level: level,
+                              ),
+                            ),
+                          );
+                        }
+                      : null, // disabled if locked
+                  child: Opacity(
+                    opacity: unlocked ? 1.0 : 0.5,
+                    child: Container(
+                      margin: EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: unlocked ? Colors.white : Colors.grey,
+                            width: 3),
+                        image: DecorationImage(
+                          image: AssetImage(
+                              "assets/images/background/${level['background_image']}"),
+                          fit: BoxFit.cover,
+                        ),
                       ),
-                    );
-                  },
-                  child: Container(
-                    margin: EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white, width: 3),
-                      image: DecorationImage(
-                        image: AssetImage("assets/images/background/${level['background_image']}"),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        level['name'],
-                        style: TextStyle(
-                          fontSize: 28,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          shadows: [
-                            Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 4),
-                          ],
+                      child: Center(
+                        child: Text(
+                          level['name'],
+                          style: TextStyle(
+                            fontSize: 28,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            shadows: [
+                              Shadow(
+                                  color: Colors.black,
+                                  offset: Offset(2, 2),
+                                  blurRadius: 4),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -97,6 +112,7 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
     );
   }
 }
+
 
 
 
