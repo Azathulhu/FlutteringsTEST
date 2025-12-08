@@ -1,4 +1,3 @@
-// lib/pages/level_selection_page.dart
 import 'package:flutter/material.dart';
 import '../services/level_service.dart';
 import 'sub_level_selection_page.dart';
@@ -9,7 +8,10 @@ class LevelSelectionPage extends StatefulWidget {
 }
 
 class _LevelSelectionPageState extends State<LevelSelectionPage> {
+  final PageController _controller = PageController(viewportFraction: 0.7);
   final LevelService _levelService = LevelService();
+
+  int currentPage = 0;
   List<Map<String, dynamic>> levels = [];
   bool loading = true;
 
@@ -20,7 +22,6 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
   }
 
   Future<void> loadLevels() async {
-    setState(() => loading = true);
     final data = await _levelService.loadLevels();
     setState(() {
       levels = data;
@@ -30,63 +31,77 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (loading) return Center(child: CircularProgressIndicator());
 
     return Scaffold(
-      appBar: AppBar(title: Text("Select Level")),
-      body: PageView.builder(
-        controller: PageController(viewportFraction: 0.7),
-        itemCount: levels.length,
-        itemBuilder: (context, index) {
-          final lvl = levels[index];
-          final unlocked = lvl['is_unlocked'] == true;
+      appBar: AppBar(title: Text("Select Biome")),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            height: 300,
+            child: PageView.builder(
+              controller: _controller,
+              itemCount: levels.length,
+              onPageChanged: (i) => setState(() => currentPage = i),
+              itemBuilder: (context, index) {
+                final level = levels[index];
+                final isUnlocked = level['is_unlocked'] == true;
 
-          return GestureDetector(
-            onTap: unlocked
-                ? () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => SubLevelSelectionPage(level: lvl),
+                return Opacity(
+                  opacity: isUnlocked ? 1 : 0.5,
+                  child: GestureDetector(
+                    onTap: isUnlocked
+                        ? () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => SubLevelSelectionPage(level: level),
+                              ),
+                            ).then((_) => loadLevels()); // refresh in case next level unlocked
+                          }
+                        : null,
+                    child: Container(
+                      margin: EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isUnlocked ? Colors.white : Colors.red,
+                          width: 3,
+                        ),
+                        image: DecorationImage(
+                          image: AssetImage(
+                              "assets/images/background/${level['background_image']}"),
+                          fit: BoxFit.cover,
+                        ),
                       ),
-                    );
-                  }
-                : null,
-            child: Container(
-              margin: EdgeInsets.symmetric(horizontal: 12, vertical: 60),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: unlocked ? Colors.white : Colors.grey, width: 3),
-                image: DecorationImage(
-                  image: AssetImage("assets/images/background/${lvl['background_image']}"),
-                  fit: BoxFit.cover,
-                  colorFilter: unlocked
-                      ? null
-                      : ColorFilter.mode(Colors.black.withOpacity(0.5), BlendMode.darken),
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  lvl['name'],
-                  style: TextStyle(
-                    fontSize: 28,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    shadows: [Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 4)],
+                      child: Center(
+                        child: Text(
+                          level['name'],
+                          style: TextStyle(
+                            fontSize: 28,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            shadows: [
+                              Shadow(
+                                  color: Colors.black,
+                                  offset: Offset(2, 2),
+                                  blurRadius: 4),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
 }
-
-
-
-
 
 
 /*import 'package:flutter/material.dart';
