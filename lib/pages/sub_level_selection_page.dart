@@ -25,11 +25,28 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
   }
 
   Future<void> loadSubLevels() async {
+    setState(() => loading = true);
     final data = await _levelService.loadSubLevels(widget.level['id']);
     setState(() {
       subLevels = data;
       loading = false;
     });
+  }
+
+  void _openGamePage(Map<String, dynamic> subLevel) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => GamePage(
+          level: widget.level,
+          subLevel: subLevel,
+          onLevelComplete: () async {
+            // Reload sub-levels when one is completed
+            await loadSubLevels();
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -52,19 +69,7 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
                 final unlocked = sub['is_unlocked'] == true;
 
                 return GestureDetector(
-                  onTap: unlocked
-                      ? () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => GamePage(
-                                level: widget.level,
-                                subLevel: sub,
-                              ),
-                            ),
-                          );
-                        }
-                      : null,
+                  onTap: unlocked ? () => _openGamePage(sub) : null,
                   child: Opacity(
                     opacity: unlocked ? 1 : 0.4,
                     child: Container(
@@ -81,9 +86,10 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
                         child: Text(
                           sub['name'],
                           style: TextStyle(
-                              fontSize: 24,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold),
+                            fontSize: 24,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -97,6 +103,7 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
     );
   }
 }
+
 
 
 
