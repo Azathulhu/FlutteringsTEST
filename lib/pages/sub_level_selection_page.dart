@@ -1,4 +1,3 @@
-// lib/pages/sub_level_selection_page.dart
 import 'package:flutter/material.dart';
 import '../services/level_service.dart';
 import 'game_page.dart';
@@ -12,7 +11,10 @@ class SubLevelSelectionPage extends StatefulWidget {
 }
 
 class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
+  final PageController _controller = PageController(viewportFraction: 0.6);
   final LevelService _levelService = LevelService();
+
+  int currentPage = 0;
   List<Map<String, dynamic>> subLevels = [];
   bool loading = true;
 
@@ -23,7 +25,6 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
   }
 
   Future<void> loadSubLevels() async {
-    setState(() => loading = true);
     final data = await _levelService.loadSubLevels(widget.level['id']);
     setState(() {
       subLevels = data;
@@ -33,39 +34,80 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (loading) return Center(child: CircularProgressIndicator());
 
     return Scaffold(
       appBar: AppBar(title: Text("Select Sub-Level")),
-      body: ListView.builder(
-        itemCount: subLevels.length,
-        itemBuilder: (context, index) {
-          final sl = subLevels[index];
-          final unlocked = sl['is_unlocked'] == true;
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            height: 250,
+            child: PageView.builder(
+              controller: _controller,
+              itemCount: subLevels.length,
+              onPageChanged: (i) => setState(() => currentPage = i),
+              itemBuilder: (context, index) {
+                final sub = subLevels[index];
+                final isUnlocked = sub['is_unlocked'] == true;
 
-          return ListTile(
-            title: Text(sl['name']),
-            trailing: Icon(sl['is_completed'] == true ? Icons.check : null),
-            enabled: unlocked,
-            onTap: unlocked
-                ? () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => GamePage(level: widget.level, subLevel: sl),
+                return Opacity(
+                  opacity: isUnlocked ? 1 : 0.5,
+                  child: GestureDetector(
+                    onTap: isUnlocked
+                        ? () async {
+                            // Start game
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => GamePage(
+                                  level: widget.level,
+                                  subLevel: sub,
+                                ),
+                              ),
+                            );
+                            // Refresh sub-levels in case next sub-level unlocked
+                            await loadSubLevels();
+                          }
+                        : null,
+                    child: Container(
+                      margin: EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.blueGrey,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isUnlocked ? Colors.white : Colors.red,
+                          width: 3,
+                        ),
                       ),
-                    );
-                  }
-                : null,
-          );
-        },
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              sub['name'],
+                              style: TextStyle(
+                                fontSize: 24,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (sub['is_completed'] == true)
+                              Icon(Icons.check_circle, color: Colors.green, size: 28),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 }
-
-
-
 
 
 /*import 'package:flutter/material.dart';
