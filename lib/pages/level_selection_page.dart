@@ -46,27 +46,29 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
               onPageChanged: (i) => setState(() => currentPage = i),
               itemBuilder: (context, index) {
                 final level = levels[index];
-                final isUnlocked = level['is_unlocked'] == true;
+                final unlocked = level['is_unlocked'] == true;
 
-                return Opacity(
-                  opacity: isUnlocked ? 1 : 0.5,
-                  child: GestureDetector(
-                    onTap: isUnlocked
-                        ? () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => SubLevelSelectionPage(level: level),
+                return GestureDetector(
+                  onTap: unlocked
+                      ? () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => SubLevelSelectionPage(
+                                level: level,
                               ),
-                            ).then((_) => loadLevels()); // refresh in case next level unlocked
-                          }
-                        : null,
+                            ),
+                          );
+                        }
+                      : null,
+                  child: Opacity(
+                    opacity: unlocked ? 1 : 0.5,
                     child: Container(
                       margin: EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isUnlocked ? Colors.white : Colors.red,
+                          color: unlocked ? Colors.white : Colors.red,
                           width: 3,
                         ),
                         image: DecorationImage(
@@ -102,6 +104,7 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
     );
   }
 }
+
 
 
 /*import 'package:flutter/material.dart';
