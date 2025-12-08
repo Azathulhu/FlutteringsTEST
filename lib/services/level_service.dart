@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class LevelService {
   final supabase = Supabase.instance.client;
 
+  // Load all levels for user
   Future<List<Map<String, dynamic>>> loadLevels() async {
     final user = supabase.auth.currentUser;
     if (user == null) return [];
@@ -14,13 +15,10 @@ class LevelService {
         .eq('user_id', user.id);
 
     return levels.map((level) {
-      // unlocked if any sub-level unlocked or level is default
       final unlocked = userSubLevels.any((ul) {
-        final slId = ul['sub_level_id'];
-        final sub = userSubLevels.firstWhere(
-            (u) => u['sub_level_id'] == slId,
-            orElse: () => {});
-        return sub['is_unlocked'] == true;
+        final subLevelId = ul['sub_level_id'];
+        return ul['is_unlocked'] == true &&
+            subLevelId != null;
       });
       return {
         ...level,
@@ -29,6 +27,7 @@ class LevelService {
     }).toList();
   }
 
+  // Load sub-levels for a level
   Future<List<Map<String, dynamic>>> loadSubLevels(int levelId) async {
     final user = supabase.auth.currentUser;
     if (user == null) return [];
@@ -44,7 +43,7 @@ class LevelService {
         .select()
         .eq('user_id', user.id);
 
-    // unlock first sub-level if none unlocked yet
+    // Unlock first sub-level if none unlocked
     if (!userSubLevels.any((ul) => ul['is_unlocked'] == true)) {
       final firstSub = subLevels.first;
       await supabase
@@ -66,6 +65,7 @@ class LevelService {
     }).toList();
   }
 
+  // Complete a sub-level and unlock next
   Future<void> completeSubLevel(int subLevelId, int levelId) async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
@@ -94,7 +94,7 @@ class LevelService {
           .eq('user_id', user.id)
           .eq('sub_level_id', nextSub['id']);
     } else {
-      // all sub-levels in current level completed => unlock first sub-level of next level
+      // unlock first sub-level of next level
       final nextLevel = await supabase
           .from('levels')
           .select()
@@ -122,6 +122,7 @@ class LevelService {
     }
   }
 }
+
 
 
 /*import 'package:supabase_flutter/supabase_flutter.dart';
