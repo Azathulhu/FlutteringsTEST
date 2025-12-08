@@ -361,22 +361,16 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   }
 
   /// --- LEVEL COMPLETION HANDLER ---
+  /// --- LEVEL COMPLETION HANDLER ---
   void _handleLevelCompletion() async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
-
-    // 1️⃣ Mark this sub-level as completed
+  
+    // ✅ Mark this sub-level as completed and automatically handle
+    // unlocking next sub-level and next level if needed
     await levelService.completeSubLevel(widget.subLevel['id'], widget.level['id']);
-
-    // 2️⃣ Check if all sub-levels in this level are completed
-    bool allSubsComplete = await levelService.areAllSubLevelsCompleted(widget.level['id'], user.id);
-
-    // 3️⃣ If yes, unlock the next level
-    if (allSubsComplete) {
-      await levelService.unlockNextLevel(widget.level['id'], user.id);
-    }
-
-    // 4️⃣ Show dialog
+  
+    // 2️⃣ Show dialog
     showDialog(
       barrierDismissible: false,
       context: context,
