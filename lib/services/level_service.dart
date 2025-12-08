@@ -14,11 +14,13 @@ class LevelService {
         .eq('user_id', user.id);
 
     return levels.map((level) {
+      // unlocked if any sub-level unlocked or level is default
       final unlocked = userSubLevels.any((ul) {
-        final subLevelId = ul['sub_level_id'];
-        return ul['is_unlocked'] == true &&
-            subLevelId != null &&
-            userSubLevels.any((u) => u['sub_level_id'] == subLevelId);
+        final slId = ul['sub_level_id'];
+        final sub = userSubLevels.firstWhere(
+            (u) => u['sub_level_id'] == slId,
+            orElse: () => {});
+        return sub['is_unlocked'] == true;
       });
       return {
         ...level,
@@ -41,6 +43,16 @@ class LevelService {
         .from('user_levels')
         .select()
         .eq('user_id', user.id);
+
+    // unlock first sub-level if none unlocked yet
+    if (!userSubLevels.any((ul) => ul['is_unlocked'] == true)) {
+      final firstSub = subLevels.first;
+      await supabase
+          .from('user_levels')
+          .update({'is_unlocked': true})
+          .eq('user_id', user.id)
+          .eq('sub_level_id', firstSub['id']);
+    }
 
     return subLevels.map((sl) {
       final ul = userSubLevels.firstWhere(
@@ -82,7 +94,7 @@ class LevelService {
           .eq('user_id', user.id)
           .eq('sub_level_id', nextSub['id']);
     } else {
-      // all sub-levels in level completed => unlock default sub-level of next level
+      // all sub-levels in current level completed => unlock first sub-level of next level
       final nextLevel = await supabase
           .from('levels')
           .select()
@@ -110,7 +122,6 @@ class LevelService {
     }
   }
 }
-
 
 
 /*import 'package:supabase_flutter/supabase_flutter.dart';
