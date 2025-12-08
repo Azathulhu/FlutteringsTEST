@@ -49,47 +49,45 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
 
                 return Opacity(
                   opacity: level['is_unlocked'] ? 1 : 0.5,
-                  child: GestureDetector(
+                  GestureDetector(
                     onTap: level['is_unlocked']
                         ? () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => SubLevelSelectionPage(
-                                  level: level,
-                                ),
+                                builder: (_) => SubLevelSelectionPage(level: level),
                               ),
-                            ).then((_) => loadLevels());
+                            );
                           }
                         : null,
-                    child: Container(
-                      margin: EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: level['is_unlocked']
-                                ? Colors.white
-                                : Colors.red,
-                            width: 3),
-                        image: DecorationImage(
-                          image: AssetImage(
-                              "assets/images/background/${level['background_image']}"),
-                          fit: BoxFit.cover,
+                    child: Opacity(
+                      opacity: level['is_unlocked'] ? 1.0 : 0.5,
+                      child: Container(
+                        margin: EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                              color: level['is_unlocked'] ? Colors.white : Colors.grey,
+                              width: 3),
+                          image: DecorationImage(
+                            image: AssetImage(
+                                "assets/images/background/${level['background_image']}"),
+                            fit: BoxFit.cover,
+                          ),
                         ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          level['name'],
-                          style: TextStyle(
-                            fontSize: 28,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            shadows: [
-                              Shadow(
-                                  color: Colors.black,
-                                  offset: Offset(2, 2),
-                                  blurRadius: 4),
-                            ],
+                        child: Center(
+                          child: Text(
+                            level['name'],
+                            style: TextStyle(
+                                fontSize: 28,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                shadows: [
+                                  Shadow(
+                                      color: Colors.black,
+                                      offset: Offset(2, 2),
+                                      blurRadius: 4),
+                                ]),
                           ),
                         ),
                       ),
