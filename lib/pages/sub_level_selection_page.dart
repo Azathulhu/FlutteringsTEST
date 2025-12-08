@@ -49,52 +49,41 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
               onPageChanged: (i) => setState(() => currentPage = i),
               itemBuilder: (context, index) {
                 final sub = subLevels[index];
-                final isUnlocked = sub['is_unlocked'] == true;
+                final unlocked = sub['is_unlocked'] == true;
 
-                return Opacity(
-                  opacity: isUnlocked ? 1 : 0.5,
-                  child: GestureDetector(
-                    onTap: isUnlocked
-                        ? () async {
-                            // Start game
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => GamePage(
-                                  level: widget.level,
-                                  subLevel: sub,
-                                ),
+                return GestureDetector(
+                  onTap: unlocked
+                      ? () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => GamePage(
+                                level: widget.level,
+                                subLevel: sub,
                               ),
-                            );
-                            // Refresh sub-levels in case next sub-level unlocked
-                            await loadSubLevels();
-                          }
-                        : null,
+                            ),
+                          );
+                        }
+                      : null,
+                  child: Opacity(
+                    opacity: unlocked ? 1 : 0.4,
                     child: Container(
                       margin: EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
                         color: Colors.blueGrey,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isUnlocked ? Colors.white : Colors.red,
+                          color: unlocked ? Colors.white : Colors.red,
                           width: 3,
                         ),
                       ),
                       child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              sub['name'],
-                              style: TextStyle(
-                                fontSize: 24,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            if (sub['is_completed'] == true)
-                              Icon(Icons.check_circle, color: Colors.green, size: 28),
-                          ],
+                        child: Text(
+                          sub['name'],
+                          style: TextStyle(
+                              fontSize: 24,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
@@ -108,6 +97,7 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
     );
   }
 }
+
 
 
 /*import 'package:flutter/material.dart';
