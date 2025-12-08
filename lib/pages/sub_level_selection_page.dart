@@ -27,6 +27,14 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
     });
   }
 
+  void _onSubLevelComplete(Map<String, dynamic> completedSub) async {
+    // Mark sub-level completed in DB
+    await levelService.completeSubLevel(completedSub['id'], widget.level['id']);
+
+    // Reload sub-levels so the next one is unlocked
+    await _loadSubLevels();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -43,8 +51,9 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
           final sub = subLevels[i];
           return GestureDetector(
             onTap: sub['is_unlocked']
-                ? () {
-                    Navigator.push(
+                ? () async {
+                    // Open the game page
+                    final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => GamePage(
@@ -53,6 +62,11 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
                         ),
                       ),
                     );
+
+                    // If game completed, mark sub-level complete & reload
+                    if (result == true) {
+                      _onSubLevelComplete(sub);
+                    }
                   }
                 : null,
             child: Opacity(
@@ -82,6 +96,7 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
     );
   }
 }
+
 
 
 /*import 'package:flutter/material.dart';
