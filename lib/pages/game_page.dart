@@ -18,8 +18,9 @@ import 'level_selection_page.dart';
 class GamePage extends StatefulWidget {
   final Map<String, dynamic> level;
   final Map<String, dynamic> subLevel;
+  final VoidCallback? onLevelComplete;
 
-  GamePage({required this.level, required this.subLevel});
+  GamePage({required this.level, required this.subLevel, this.onLevelComplete});
 
   @override
   State<GamePage> createState() => _GamePageState();
@@ -55,10 +56,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   final double projW = 48.0;
   final double projH = 24.0;
 
-  // Accelerometer
   double latestTiltX = 0.0;
-
-  // Gravity (can also come from Supabase or sublevel)
   double gravity = 800.0;
 
   int currentWave = 1;
@@ -71,9 +69,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
   late EnemyService enemyService;
   late WeaponService weaponService;
-
   late LevelService levelService;
-
 
   Map<int, List<int>> originalWaveCounts = {};
 
@@ -99,16 +95,13 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     enemyService = EnemyService();
     weaponService = WeaponService();
 
-    // Load waves
     wavePool = await enemyService.loadWavePool(widget.subLevel['id'], 0, -120);
     maxWaves = enemyService.getMaxWave(wavePool);
 
-    // Save original counts for restart
     for (var entry in wavePool.entries) {
       originalWaveCounts[entry.key] = entry.value.map((e) => e.remaining).toList();
     }
 
-    // Load user character
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
@@ -137,11 +130,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       currentHealth: (charData['current_health'] ?? 100) as int,
     );
 
-    world = World(
-      screenWidth: screenWidth,
-      screenHeight: screenHeight,
-      character: character,
-    );
+    world = World(screenWidth: screenWidth, screenHeight: screenHeight, character: character);
 
     _addStartingPlatform();
 
@@ -151,7 +140,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
     equippedWeapon = results[0] as Weapon?;
 
-    // Precache images
     List<Future> precacheFutures = [];
     precacheFutures.add(precacheImage(AssetImage(character.spritePath), context));
     if (equippedWeapon != null) {
@@ -169,8 +157,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     _accelerometerSubscription = accelerometerEvents.listen((event) {
       if (!paused) {
         latestTiltX = -event.x;
-        if (latestTiltX > 0.1) character.facingRight = true;
-        else if (latestTiltX < -0.1) character.facingRight = false;
+        character.facingRight = latestTiltX > 0.1 ? true : latestTiltX < -0.1 ? false : character.facingRight;
       }
     });
   }
@@ -211,9 +198,9 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       if (currentWave < maxWaves) {
         currentWave++;
         nextSpawnIn = 0.5;
-      } else {
-        levelComplete = true; // <-- prevent repeated dialogs
-        paused = true;  
+      } else if (!levelComplete) {
+        levelComplete = true;
+        paused = true;
         _showCompleteDialog();
       }
     }
@@ -298,17 +285,10 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
       for (int j = enemies.length - 1; j >= 0; j--) {
         final e = enemies[j];
 
-        final pLeft = p.x - projW / 2;
-        final pRight = p.x + projW / 2;
-        final pTop = p.y - projH / 2;
-        final pBottom = p.y + projH / 2;
-
-        final eLeft = e.x;
-        final eRight = e.x + e.width;
-        final eTop = e.y;
-        final eBottom = e.y + e.height;
-
-        if (!(pRight < eLeft || pLeft > eRight || pBottom < eTop || pTop > eBottom)) {
+        if (!(p.x + projW / 2 < e.x ||
+              p.x - projW / 2 > e.x + e.width ||
+              p.y + projH / 2 < e.y ||
+              p.y - projH / 2 > e.y + e.height)) {
           e.currentHealth -= p.damage;
           shouldRemove = true;
           if (e.currentHealth <= 0) enemies.removeAt(j);
@@ -372,14 +352,18 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   }
 
   void _showCompleteDialog() async {
-    // Mark the sub-level as completed and unlock the next one
     await levelService.completeSubLevel(widget.subLevel['id']);
-  
+
+    // call the callback to refresh sub-levels
+    if (widget.onLevelComplete != null) {
+      widget.onLevelComplete!();
+    }
+
     setState(() {
       levelComplete = true;
       paused = true;
     });
-  
+
     showDialog(
       barrierDismissible: false,
       context: context,
@@ -390,7 +374,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              // Go back to SubLevelSelectionPage to see updated unlocked levels
               Navigator.of(context).pop(true);
             },
             child: Text("Back"),
@@ -398,7 +381,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              _restartGame(); // restart current sub-level
+              _restartGame();
             },
             child: Text("Try Again"),
           ),
@@ -449,7 +432,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     nextSpawnIn = 0.5;
     currentWave = 1;
 
-    // reset wave remaining counts
     for (var entry in wavePool.entries) {
       for (int i = 0; i < entry.value.length; i++) {
         entry.value[i].remaining = originalWaveCounts[entry.key]![i];
@@ -552,7 +534,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
                 ),
               );
             }),
-            // waves
             Positioned(
               top: 40,
               left: 20,
@@ -604,6 +585,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     );
   }
 }
+
 
 /*import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
