@@ -390,7 +390,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              // Go back to SubLevelSelectionPage
+              // Go back to SubLevelSelectionPage to see updated unlocked levels
               Navigator.of(context).pop();
             },
             child: Text("Back"),
