@@ -30,7 +30,7 @@ class LevelService {
             .from('user_levels')
             .select()
             .eq('user_id', user.id)
-            .in_('sub_level_id', prevSubLevelIds)
+            .filter('sub_level_id', 'in', '(${prevSubLevelIds.join(',')})')
             .eq('is_completed', true);
 
         unlockedLevels.add({
@@ -59,7 +59,7 @@ class LevelService {
         .from('user_levels')
         .select()
         .eq('user_id', user.id)
-        .in_('sub_level_id', subLevelIds);
+        .filter('sub_level_id', 'in', '(${subLevelIds.join(',')})');
 
     return subLevels.map((s) {
       final unlocked = unlockedRows.any((u) =>
@@ -85,7 +85,7 @@ class LevelService {
 
     if (current == null) return;
 
-    // 1️⃣ Unlock next sub-level in the same level
+    // 1️⃣ Unlock the next sub-level in the same level
     final nextSubLevel = await supabase
         .from('sub_levels')
         .select()
@@ -100,7 +100,7 @@ class LevelService {
         'user_id': user.id,
         'sub_level_id': nextSubLevel['id'],
         'is_unlocked': true,
-      }, onConflict: ['user_id', 'sub_level_id']);
+      }, onConflict: 'sub_level_id');
       return;
     }
 
@@ -126,7 +126,7 @@ class LevelService {
           'user_id': user.id,
           'sub_level_id': firstSubLevel['id'],
           'is_unlocked': true,
-        }, onConflict: ['user_id', 'sub_level_id']);
+        }, onConflict: 'sub_level_id');
       }
     }
   }
@@ -142,7 +142,7 @@ class LevelService {
       'sub_level_id': subLevelId,
       'is_completed': true,
       'is_unlocked': true,
-    }, onConflict: ['user_id', 'sub_level_id']);
+    }, onConflict: 'sub_level_id');
 
     // Unlock next sub-level
     await unlockNextSubLevel(subLevelId);
@@ -166,7 +166,7 @@ class LevelService {
         .from('user_levels')
         .select()
         .eq('user_id', user.id)
-        .in_('sub_level_id', currentSubLevelIds)
+        .filter('sub_level_id', 'in', '(${currentSubLevelIds.join(',')})')
         .eq('is_completed', true);
 
     if (completedRows.length == currentSubLevels.length) {
@@ -183,11 +183,12 @@ class LevelService {
         await supabase.from('users_meta').upsert({
           'user_id': user.id,
           'unlocked_levels': {'append': [nextLevel['id']]},
-        }, onConflict: ['user_id']);
+        });
       }
     }
   }
 }
+
 
 
 
