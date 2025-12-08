@@ -361,16 +361,17 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   }
 
   /// --- LEVEL COMPLETION HANDLER ---
-  /// --- LEVEL COMPLETION HANDLER ---
   void _handleLevelCompletion() async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
   
-    // ✅ Mark this sub-level as completed and automatically handle
-    // unlocking next sub-level and next level if needed
+    // 1️⃣ Mark this sub-level as completed
     await levelService.completeSubLevel(widget.subLevel['id'], widget.level['id']);
   
-    // 2️⃣ Show dialog
+    // 2️⃣ Immediately reload all levels from Supabase
+    final updatedLevels = await levelService.loadLevels();
+  
+    // 3️⃣ Show dialog after fetching updated levels
     showDialog(
       barrierDismissible: false,
       context: context,
@@ -380,8 +381,11 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
+              // 4️⃣ Go back to level selection with updated levels
               Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => LevelSelectionPage()),
+                MaterialPageRoute(
+                  builder: (_) => LevelSelectionPage(levels: updatedLevels),
+                ),
               );
             },
             child: Text("Back"),
