@@ -384,7 +384,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
               // 4️⃣ Go back to level selection with updated levels
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
-                  builder: (_) => LevelSelectionPage(levels: updatedLevels),
+                  builder: (_) => LevelSelectionPage(preloadedLevels: updatedLevels),
                 ),
               );
             },
