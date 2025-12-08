@@ -140,19 +140,55 @@ class LevelService {
   }
 
   /// Mark a sub-level as completed
+  // lib/services/level_service.dart
+
   Future<void> completeSubLevel(int subLevelId) async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
-
+  
+    // Mark current sub-level as completed
     await supabase.from('user_levels').upsert({
       'user_id': user.id,
       'sub_level_id': subLevelId,
       'is_completed': true,
       'is_unlocked': true,
     });
-
+  
+    // Unlock next sub-level in the same level
     await unlockNextSubLevel(subLevelId);
+  
+    // Check if current level is fully completed to unlock next level
+    final currentSubLevels = await supabase
+        .from('sub_levels')
+        .select()
+        .eq('level_id', (await supabase.from('sub_levels').select('level_id').eq('id', subLevelId).maybeSingle())?['level_id']);
+  
+    final completedRows = await supabase
+        .from('user_levels')
+        .select()
+        .eq('user_id', user.id)
+        .in_('sub_level_id', currentSubLevels.map((s) => s['id']).toList());
+  
+    // If all sub-levels in current level are completed, unlock next level
+    if (completedRows.length == currentSubLevels.length) {
+      final currentLevelId = currentSubLevels.first['level_id'];
+      final nextLevel = await supabase
+          .from('levels')
+          .select()
+          .gt('id', currentLevelId)
+          .order('id', ascending: true)
+          .limit(1)
+          .maybeSingle();
+  
+      if (nextLevel != null) {
+        await supabase.from('users_meta').upsert({
+          'user_id': user.id,
+          'unlocked_levels': SupabasePostgrestArray.append([nextLevel['id']]),
+        });
+      }
+    }
   }
+
 }
 
 
