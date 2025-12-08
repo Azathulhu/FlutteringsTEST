@@ -354,11 +354,14 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   // Inside _showCompleteDialog() – updated
   void _showCompleteDialog() async {
     final user = supabase.auth.currentUser;
-    if (user != null) {
-      await levelService.completeSubLevel(user.id, widget.subLevel['id']);
-    }
+
+    await levelService.completeSubLevel(
+      user.id,
+      widget.subLevel['id'],
+    );
+
     // 1️⃣ Mark current sub-level as completed & unlock next
-    await levelService.completeSubLevel(widget.subLevel['id']);
+    //await levelService.completeSubLevel(widget.subLevel['id']);
   
     // 2️⃣ Reload sub-levels in the parent page via callback
     if (widget.onLevelComplete != null) {
