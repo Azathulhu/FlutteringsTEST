@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class LevelService {
   final supabase = Supabase.instance.client;
 
-  // Load all levels for user
+  /// Load all levels with user's unlocked info
   Future<List<Map<String, dynamic>>> loadLevels() async {
     final user = supabase.auth.currentUser;
     if (user == null) return [];
@@ -15,10 +15,12 @@ class LevelService {
         .eq('user_id', user.id);
 
     return levels.map((level) {
+      // unlocked if any sub-level is unlocked or level is default
       final unlocked = userSubLevels.any((ul) {
         final subLevelId = ul['sub_level_id'];
         return ul['is_unlocked'] == true &&
-            subLevelId != null;
+            subLevelId != null &&
+            userSubLevels.any((u) => u['sub_level_id'] == subLevelId);
       });
       return {
         ...level,
@@ -27,7 +29,7 @@ class LevelService {
     }).toList();
   }
 
-  // Load sub-levels for a level
+  /// Load all sub-levels for a level with user's progress
   Future<List<Map<String, dynamic>>> loadSubLevels(int levelId) async {
     final user = supabase.auth.currentUser;
     if (user == null) return [];
@@ -43,16 +45,6 @@ class LevelService {
         .select()
         .eq('user_id', user.id);
 
-    // Unlock first sub-level if none unlocked
-    if (!userSubLevels.any((ul) => ul['is_unlocked'] == true)) {
-      final firstSub = subLevels.first;
-      await supabase
-          .from('user_levels')
-          .update({'is_unlocked': true})
-          .eq('user_id', user.id)
-          .eq('sub_level_id', firstSub['id']);
-    }
-
     return subLevels.map((sl) {
       final ul = userSubLevels.firstWhere(
           (u) => u['sub_level_id'] == sl['id'],
@@ -65,65 +57,85 @@ class LevelService {
     }).toList();
   }
 
-  // Complete a sub-level and unlock next
+  /// Complete a sub-level and unlock the next proper sub-level
   Future<void> completeSubLevel(int subLevelId, int levelId) async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
-    // mark current sub-level completed
-    await supabase
-        .from('user_levels')
-        .update({'is_completed': true})
-        .eq('user_id', user.id)
-        .eq('sub_level_id', subLevelId);
+    // Mark current sub-level as completed (upsert in case it doesn't exist)
+    await supabase.from('user_levels').upsert({
+      'user_id': user.id,
+      'sub_level_id': subLevelId,
+      'is_completed': true,
+      'is_unlocked': true,
+    }, onConflict: ['user_id', 'sub_level_id']);
 
-    // unlock next sub-level in same level
+    // Load all sub-levels for this level in order
     final subLevels = await supabase
         .from('sub_levels')
         .select()
         .eq('level_id', levelId)
         .order('order_index', ascending: true);
 
-    final currentIndex = subLevels.indexWhere((sl) => sl['id'] == subLevelId);
+    // Load user's sub-level status for this level
+    final userSubLevels = await supabase
+        .from('user_levels')
+        .select()
+        .eq('user_id', user.id)
+        .in_('sub_level_id', subLevels.map((s) => s['id']).toList());
 
-    if (currentIndex + 1 < subLevels.length) {
-      final nextSub = subLevels[currentIndex + 1];
-      await supabase
-          .from('user_levels')
-          .update({'is_unlocked': true})
-          .eq('user_id', user.id)
-          .eq('sub_level_id', nextSub['id']);
-    } else {
-      // unlock first sub-level of next level
-      final nextLevel = await supabase
-          .from('levels')
+    // Find next sub-level to unlock inside the same level
+    Map<String, dynamic>? nextSubToUnlock;
+    for (var sl in subLevels) {
+      final ul = userSubLevels.firstWhere(
+          (u) => u['sub_level_id'] == sl['id'],
+          orElse: () => {'is_completed': false});
+      if (ul['is_completed'] != true) {
+        nextSubToUnlock = sl;
+        break;
+      }
+    }
+
+    if (nextSubToUnlock != null) {
+      // Unlock the next sub-level inside the same level
+      await supabase.from('user_levels').upsert({
+        'user_id': user.id,
+        'sub_level_id': nextSubToUnlock['id'],
+        'is_unlocked': true,
+        'is_completed': false,
+      }, onConflict: ['user_id', 'sub_level_id']);
+      return; // done, don't unlock next level yet
+    }
+
+    // If we reach here, all sub-levels in this level are completed
+    // Unlock default sub-level of the next level
+    final nextLevel = await supabase
+        .from('levels')
+        .select()
+        .gt('id', levelId)
+        .order('id', ascending: true)
+        .limit(1)
+        .maybeSingle();
+
+    if (nextLevel != null) {
+      final nextDefaultSub = await supabase
+          .from('sub_levels')
           .select()
-          .gt('id', levelId)
-          .order('id', ascending: true)
-          .limit(1)
+          .eq('level_id', nextLevel['id'])
+          .eq('is_default', true)
           .maybeSingle();
 
-      if (nextLevel != null) {
-        final nextDefaultSub = await supabase
-            .from('sub_levels')
-            .select()
-            .eq('level_id', nextLevel['id'])
-            .eq('is_default', true)
-            .maybeSingle();
-
-        if (nextDefaultSub != null) {
-          await supabase
-              .from('user_levels')
-              .update({'is_unlocked': true})
-              .eq('user_id', user.id)
-              .eq('sub_level_id', nextDefaultSub['id']);
-        }
+      if (nextDefaultSub != null) {
+        await supabase.from('user_levels').upsert({
+          'user_id': user.id,
+          'sub_level_id': nextDefaultSub['id'],
+          'is_unlocked': true,
+          'is_completed': false,
+        }, onConflict: ['user_id', 'sub_level_id']);
       }
     }
   }
 }
-
-
 
 /*import 'package:supabase_flutter/supabase_flutter.dart';
 
