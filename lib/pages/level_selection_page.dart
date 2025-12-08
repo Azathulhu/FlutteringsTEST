@@ -46,7 +46,10 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
                       MaterialPageRoute(
                         builder: (_) => SubLevelSelectionPage(level: level),
                       ),
-                    );
+                    ).then((_) {
+                      // Refresh levels when coming back
+                      _loadLevels();
+                    });
                   }
                 : null,
             child: Opacity(
@@ -86,6 +89,7 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
     );
   }
 }
+
 
 
 
