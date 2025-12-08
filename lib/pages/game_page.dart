@@ -368,10 +368,10 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     // 1️⃣ Mark this sub-level as completed
     await levelService.completeSubLevel(widget.subLevel['id'], widget.level['id']);
   
-    // 2️⃣ Immediately reload all levels from Supabase
+    // 2️⃣ Reload all levels so we have updated 'is_unlocked' states
     final updatedLevels = await levelService.loadLevels();
   
-    // 3️⃣ Show dialog after fetching updated levels
+    // 3️⃣ Show dialog
     showDialog(
       barrierDismissible: false,
       context: context,
@@ -381,7 +381,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              // 4️⃣ Go back to level selection with updated levels
+              // 4️⃣ Go back to level selection, passing updated levels
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
                   builder: (_) => LevelSelectionPage(preloadedLevels: updatedLevels),
