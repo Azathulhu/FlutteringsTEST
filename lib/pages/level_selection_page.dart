@@ -1,9 +1,11 @@
+// lib/pages/level_selection_page.dart
 import 'package:flutter/material.dart';
 import '../services/level_service.dart';
 import 'sub_level_selection_page.dart';
 
 class LevelSelectionPage extends StatefulWidget {
   final List<Map<String, dynamic>>? preloadedLevels;
+
   LevelSelectionPage({this.preloadedLevels});
 
   @override
@@ -21,19 +23,16 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
   @override
   void initState() {
     super.initState();
-    if (widget.preloadedLevels != null) {
-      levels = widget.preloadedLevels!;
-      loading = false;
-    } else {
-      loadLevels();
-    }
+    loadLevels();
   }
 
   Future<void> loadLevels() async {
-    setState(() => loading = true);
-    final data = await _levelService.loadLevels();
+    if (widget.preloadedLevels != null) {
+      levels = widget.preloadedLevels!;
+    } else {
+      levels = await _levelService.loadLevels();
+    }
     setState(() {
-      levels = data;
       loading = false;
     });
   }
@@ -55,40 +54,24 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
               onPageChanged: (i) => setState(() => currentPage = i),
               itemBuilder: (context, index) {
                 final level = levels[index];
-                final unlocked = level['is_unlocked'] == true;
 
                 return GestureDetector(
-                  onTap: unlocked
-                      ? () async {
-                          // Go to sub-level selection
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => SubLevelSelectionPage(level: level),
-                            ),
-                          );
-
-                          // After returning, reload levels to reflect new unlocks
-                          if (result == true) {
-                            await loadLevels();
-                          }
-                        }
-                      : null,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SubLevelSelectionPage(level: level),
+                      ),
+                    );
+                  },
                   child: Container(
                     margin: EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: unlocked ? Colors.white : Colors.grey,
-                        width: 3,
-                      ),
+                      border: Border.all(color: Colors.white, width: 3),
                       image: DecorationImage(
-                        image: AssetImage(
-                            "assets/images/background/${level['background_image']}"),
+                        image: AssetImage("assets/images/background/${level['background_image']}"),
                         fit: BoxFit.cover,
-                        colorFilter: unlocked
-                            ? null
-                            : ColorFilter.mode(Colors.black45, BlendMode.darken),
                       ),
                     ),
                     child: Center(
@@ -99,10 +82,7 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           shadows: [
-                            Shadow(
-                                color: Colors.black,
-                                offset: Offset(2, 2),
-                                blurRadius: 4),
+                            Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 4),
                           ],
                         ),
                       ),
@@ -117,6 +97,7 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
     );
   }
 }
+
 
 
 
