@@ -18,10 +18,10 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
   @override
   void initState() {
     super.initState();
-    loadLevels();
+    _loadLevels();
   }
 
-  Future<void> loadLevels() async {
+  Future<void> _loadLevels() async {
     final data = await _levelService.loadLevels();
     setState(() {
       levels = data;
@@ -50,15 +50,15 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
 
                 return GestureDetector(
                   onTap: unlocked
-                      ? () {
-                          Navigator.push(
+                      ? () async {
+                          await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => SubLevelSelectionPage(
-                                level: level,
-                              ),
+                              builder: (_) => SubLevelSelectionPage(level: level),
                             ),
                           );
+                          // Reload levels to reflect any progression changes
+                          _loadLevels();
                         }
                       : null,
                   child: Opacity(
@@ -104,6 +104,7 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
     );
   }
 }
+
 
 
 
