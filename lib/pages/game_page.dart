@@ -351,19 +351,23 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     return result ?? false;
   }
 
+  // Inside _showCompleteDialog() – updated
   void _showCompleteDialog() async {
+    // 1️⃣ Mark current sub-level as completed & unlock next
     await levelService.completeSubLevel(widget.subLevel['id']);
-
-    // call the callback to refresh sub-levels
+  
+    // 2️⃣ Reload sub-levels in the parent page via callback
     if (widget.onLevelComplete != null) {
       widget.onLevelComplete!();
     }
-
+  
+    // 3️⃣ Update UI state
     setState(() {
       levelComplete = true;
       paused = true;
     });
-
+  
+    // 4️⃣ Show dialog
     showDialog(
       barrierDismissible: false,
       context: context,
@@ -374,14 +378,14 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              Navigator.of(context).pop(true);
+              Navigator.of(context).pop(true); // go back to sub-level selection
             },
             child: Text("Back"),
           ),
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              _restartGame();
+              _restartGame(); // replay same sub-level
             },
             child: Text("Try Again"),
           ),
