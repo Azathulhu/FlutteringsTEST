@@ -78,9 +78,121 @@ class LevelService {
       return [];
     }
   }
+  Future<void> completeSubLevel(String userId, int subLevelId) async {
+    try {
+      // 1️⃣ Mark the current sub-level as completed and unlocked
+      await supabase.from('user_levels').upsert({
+        'user_id': userId,
+        'sub_level_id': subLevelId,
+        'is_completed': true,
+        'is_unlocked': true,
+      }, onConflict: 'user_id,sub_level_id');
+  
+      // 2️⃣ Fetch current sub-level info
+      final current = await supabase
+          .from('sub_levels')
+          .select()
+          .eq('id', subLevelId)
+          .maybeSingle();
+  
+      if (current == null) return;
+  
+      final levelId = current['level_id'] as int;
+      final orderIndex = current['order_index'] as int;
+  
+      // 3️⃣ Fetch all sub-levels of current level ordered by order_index
+      final subLevels = await supabase
+          .from('sub_levels')
+          .select()
+          .eq('level_id', levelId)
+          .order('order_index');
+  
+      // 4️⃣ Find the next sub-level in the same level that is NOT completed yet
+      Map<String, dynamic>? nextSubLevel;
+      for (var s in subLevels) {
+        final subId = s['id'] as int;
+  
+        if (subId == subLevelId) continue; // skip current
+  
+        // check if already completed
+        final userSub = await supabase
+            .from('user_levels')
+            .select()
+            .eq('user_id', userId)
+            .eq('sub_level_id', subId)
+            .maybeSingle();
+  
+        final completed = userSub != null && userSub['is_completed'] == true;
+  
+        if (!completed) {
+          nextSubLevel = s;
+          break;
+        }
+      }
+  
+      if (nextSubLevel != null) {
+        // Unlock next sub-level
+        await supabase.from('user_levels').upsert({
+          'user_id': userId,
+          'sub_level_id': nextSubLevel['id'],
+          'is_unlocked': true,
+        }, onConflict: 'user_id,sub_level_id');
+  
+        return;
+      }
+  
+      // 5️⃣ No next sub-level in current level → move to first sub-level of next level
+      final nextLevel = await supabase
+          .from('levels')
+          .select()
+          .gt('id', levelId)
+          .order('id', ascending: true)
+          .limit(1)
+          .maybeSingle();
+  
+      if (nextLevel != null) {
+        final nextLevelSubLevels = await supabase
+            .from('sub_levels')
+            .select()
+            .eq('level_id', nextLevel['id'])
+            .order('order_index');
+  
+        if (nextLevelSubLevels.isNotEmpty) {
+          final firstSub = nextLevelSubLevels.first;
+  
+          // Unlock first sub-level of next level
+          await supabase.from('user_levels').upsert({
+            'user_id': userId,
+            'sub_level_id': firstSub['id'],
+            'is_unlocked': true,
+          }, onConflict: 'user_id,sub_level_id');
+  
+          // Update unlocked_levels array in users_meta
+          final userMeta = await supabase
+              .from('users_meta')
+              .select('unlocked_levels')
+              .eq('user_id', userId)
+              .maybeSingle();
+  
+          List<int> unlockedLevels =
+              List<int>.from(userMeta?['unlocked_levels'] ?? []);
+  
+          if (!unlockedLevels.contains(nextLevel['id'])) {
+            unlockedLevels.add(nextLevel['id']);
+            await supabase
+                .from('users_meta')
+                .update({'unlocked_levels': unlockedLevels})
+                .eq('user_id', userId);
+          }
+        }
+      }
+    } catch (e, st) {
+      debugPrint('completeSubLevel ERROR: $e\n$st');
+    }
+  }
 
   /// NEW FIXED SIGNATURE
-  Future<void> completeSubLevel(String userId, int subLevelId) async {
+  /*Future<void> completeSubLevel(String userId, int subLevelId) async {
     try {
       /// 1. mark this sub-level complete + unlocked
       await supabase.from('user_levels').upsert({
@@ -176,13 +288,8 @@ class LevelService {
     } catch (e, st) {
       debugPrint('completeSubLevel ERROR: $e\n$st');
     }
-  }
+  }*/
 }
-
-
-
-
-
 
 /*import 'package:supabase_flutter/supabase_flutter.dart';
 
