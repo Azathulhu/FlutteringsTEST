@@ -12,6 +12,7 @@ import '../game/projectile.dart';
 import '../game/weapon.dart';
 import '../services/weapon_service.dart';
 import '../services/enemy_service.dart';
+import '../services/level_service.dart';
 import 'level_selection_page.dart';
 
 class GamePage extends StatefulWidget {
@@ -71,11 +72,15 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   late EnemyService enemyService;
   late WeaponService weaponService;
 
+  late LevelService levelService;
+
+
   Map<int, List<int>> originalWaveCounts = {};
 
   @override
   void initState() {
     super.initState();
+    levelService = LevelService();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _loadGameData();
       nextSpawnIn = 0.5 + random.nextDouble();
@@ -366,7 +371,13 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     return result ?? false;
   }
 
-  void _showCompleteDialog() {
+  void _showCompleteDialog() async {
+    // Complete the sub-level in Supabase and unlock the next one
+    await levelService.completeSubLevel(
+      widget.subLevel['id'],
+      widget.level['id'],
+    );
+  
     showDialog(
       barrierDismissible: false,
       context: context,
