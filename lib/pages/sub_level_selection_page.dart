@@ -21,10 +21,10 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
   @override
   void initState() {
     super.initState();
-    loadSubLevels();
+    _loadSubLevels();
   }
 
-  Future<void> loadSubLevels() async {
+  Future<void> _loadSubLevels() async {
     setState(() => loading = true);
     final data = await _levelService.loadSubLevels(widget.level['id']);
     setState(() {
@@ -41,12 +41,14 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
           level: widget.level,
           subLevel: subLevel,
           onLevelComplete: () async {
-            // Reload sub-levels when one is completed
-            await loadSubLevels();
+            // Reload sub-levels immediately after completing one
+            await _loadSubLevels();
           },
         ),
       ),
     );
+    // Reload sub-levels in case player unlocked another one
+    _loadSubLevels();
   }
 
   @override
@@ -103,6 +105,7 @@ class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
     );
   }
 }
+
 
 
 
