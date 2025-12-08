@@ -31,12 +31,17 @@ class _LevelSelectionPageState extends State<LevelSelectionPage> {
   }
 
   Future<void> loadLevels() async {
+    setState(() => loading = true);
     final data = await _levelService.loadLevels();
+    if (data.isEmpty) {
+      print("Levels list is empty!");
+    }
     setState(() {
       levels = data;
       loading = false;
     });
   }
+
 
   @override
   Widget build(BuildContext context) {
