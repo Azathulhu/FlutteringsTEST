@@ -64,7 +64,6 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   int currentWave = 1;
   late int maxWaves;
   Map<int, List<WaveEntry>> wavePool = {};
-  Map<int, List<int>> originalWaveCounts = {};
 
   final double minSpawnInterval = 1.0;
   final double maxSpawnInterval = 3.0;
@@ -72,7 +71,11 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
   late EnemyService enemyService;
   late WeaponService weaponService;
+
   late LevelService levelService;
+
+
+  Map<int, List<int>> originalWaveCounts = {};
 
   @override
   void initState() {
@@ -96,13 +99,16 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     enemyService = EnemyService();
     weaponService = WeaponService();
 
+    // Load waves
     wavePool = await enemyService.loadWavePool(widget.subLevel['id'], 0, -120);
     maxWaves = enemyService.getMaxWave(wavePool);
 
+    // Save original counts for restart
     for (var entry in wavePool.entries) {
       originalWaveCounts[entry.key] = entry.value.map((e) => e.remaining).toList();
     }
 
+    // Load user character
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
@@ -139,8 +145,13 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
     _addStartingPlatform();
 
-    equippedWeapon = await weaponService.getUserWeapon(user.id);
+    final results = await Future.wait([
+      weaponService.getUserWeapon(user.id),
+    ]);
 
+    equippedWeapon = results[0] as Weapon?;
+
+    // Precache images
     List<Future> precacheFutures = [];
     precacheFutures.add(precacheImage(AssetImage(character.spritePath), context));
     if (equippedWeapon != null) {
@@ -201,9 +212,9 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         currentWave++;
         nextSpawnIn = 0.5;
       } else {
-        levelComplete = true;
-        paused = true;
-        _handleLevelCompletion();
+        levelComplete = true; // <-- prevent repeated dialogs
+        paused = true;  
+        _showCompleteDialog();
       }
     }
   }
@@ -246,10 +257,10 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
     if (equippedWeapon != null && enemies.isNotEmpty) {
       enemies.sort((a, b) {
-        double da = ((a.x + a.width / 2) - (character.x + character.width / 2)).abs() +
-                    ((a.y + a.height / 2) - (character.y + character.height / 2)).abs();
-        double db = ((b.x + b.width / 2) - (character.x + character.width / 2)).abs() +
-                    ((b.y + b.height / 2) - (character.y + character.height / 2)).abs();
+        double da = ((a.x + a.width/2) - (character.x + character.width/2)).abs() +
+                    ((a.y + a.height/2) - (character.y + character.height/2)).abs();
+        double db = ((b.x + b.width/2) - (character.x + character.width/2)).abs() +
+                    ((b.y + b.height/2) - (character.y + character.height/2)).abs();
         return da.compareTo(db);
       });
 
@@ -360,40 +371,34 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
     return result ?? false;
   }
 
-  /// --- LEVEL COMPLETION HANDLER ---
-  void _handleLevelCompletion() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
+  void _showCompleteDialog() async {
+    // Mark the sub-level as completed and unlock the next one
+    await levelService.completeSubLevel(widget.subLevel['id']);
   
-    // 1️⃣ Mark this sub-level as completed
-    await levelService.completeSubLevel(widget.subLevel['id'], widget.level['id']);
+    setState(() {
+      levelComplete = true;
+      paused = true;
+    });
   
-    // 2️⃣ Reload all levels so we have updated 'is_unlocked' states
-    final updatedLevels = await levelService.loadLevels();
-  
-    // 3️⃣ Show dialog
     showDialog(
       barrierDismissible: false,
       context: context,
       builder: (_) => AlertDialog(
         title: Text("Level Complete!"),
+        content: Text("Congratulations! You've completed this sub-level."),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              // 4️⃣ Go back to level selection, passing updated levels
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (_) => LevelSelectionPage(preloadedLevels: updatedLevels),
-                ),
-              );
+              // Go back to SubLevelSelectionPage
+              Navigator.of(context).pop();
             },
             child: Text("Back"),
           ),
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              _restartGame();
+              _restartGame(); // restart current sub-level
             },
             child: Text("Try Again"),
           ),
