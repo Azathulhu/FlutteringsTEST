@@ -1,3 +1,4 @@
+// lib/pages/sub_level_selection_page.dart
 import 'package:flutter/material.dart';
 import '../services/level_service.dart';
 import 'game_page.dart';
@@ -11,86 +12,58 @@ class SubLevelSelectionPage extends StatefulWidget {
 }
 
 class _SubLevelSelectionPageState extends State<SubLevelSelectionPage> {
-  final LevelService levelService = LevelService();
+  final LevelService _levelService = LevelService();
   List<Map<String, dynamic>> subLevels = [];
+  bool loading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadSubLevels();
+    loadSubLevels();
   }
 
-  Future<void> _loadSubLevels() async {
-    final subs = await levelService.loadSubLevels(widget.level['id']);
+  Future<void> loadSubLevels() async {
+    setState(() => loading = true);
+    final data = await _levelService.loadSubLevels(widget.level['id']);
     setState(() {
-      subLevels = subs;
+      subLevels = data;
+      loading = false;
     });
-  }
-
-  Future<void> _onSubLevelComplete(Map<String, dynamic> completedSub) async {
-    await levelService.completeSubLevel(completedSub['id'], widget.level['id']);
-    await _loadSubLevels();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (loading) return Scaffold(body: Center(child: CircularProgressIndicator()));
+
     return Scaffold(
-      appBar: AppBar(title: Text(widget.level['name'])),
-      body: GridView.builder(
-        padding: EdgeInsets.all(12),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-        ),
+      appBar: AppBar(title: Text("Select Sub-Level")),
+      body: ListView.builder(
         itemCount: subLevels.length,
-        itemBuilder: (_, i) {
-          final sub = subLevels[i];
-          return GestureDetector(
-            onTap: sub['is_unlocked']
-                ? () async {
-                    final result = await Navigator.push(
+        itemBuilder: (context, index) {
+          final sl = subLevels[index];
+          final unlocked = sl['is_unlocked'] == true;
+
+          return ListTile(
+            title: Text(sl['name']),
+            trailing: Icon(sl['is_completed'] == true ? Icons.check : null),
+            enabled: unlocked,
+            onTap: unlocked
+                ? () {
+                    Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => GamePage(
-                          level: widget.level,
-                          subLevel: sub,
-                        ),
+                        builder: (_) => GamePage(level: widget.level, subLevel: sl),
                       ),
                     );
-
-                    if (result == true) {
-                      _onSubLevelComplete(sub);
-                    }
                   }
                 : null,
-            child: Opacity(
-              opacity: sub['is_unlocked'] ? 1.0 : 0.5,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.blueGrey,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                      color: sub['is_unlocked'] ? Colors.white : Colors.red,
-                      width: 3),
-                ),
-                child: Center(
-                  child: Text(
-                    sub['name'],
-                    style: TextStyle(
-                        fontSize: 24,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ),
           );
         },
       ),
     );
   }
 }
+
 
 
 
