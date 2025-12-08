@@ -75,6 +75,51 @@ class LevelService {
     }
   }
 
+  Future<void> unlockNextSubLevel(String userId, Map<String, dynamic> currentSubLevel) async {
+    // 1. Fetch all sub-levels of the same level, ordered by order_index
+    final subLevels = await supabase
+        .from('sub_levels')
+        .select()
+        .eq('level_id', currentSubLevel['level_id'])
+        .order('order_index', ascending: true) as List<dynamic>;
+  
+    // 2. Find the next sub-level after the current one
+    int currentIndex = subLevels.indexWhere((s) => s['id'] == currentSubLevel['id']);
+    if (currentIndex == -1 || currentIndex + 1 >= subLevels.length) return;
+  
+    final nextSubLevel = subLevels[currentIndex + 1];
+  
+    // 3. Fetch user's unlocked levels array
+    final userMeta = await supabase
+        .from('users_meta')
+        .select('unlocked_levels')
+        .eq('user_id', userId)
+        .maybeSingle();
+  
+    if (userMeta == null) return;
+  
+    List<int> unlockedLevels = List<int>.from(userMeta['unlocked_levels'] ?? []);
+  
+    // 4. If next level not unlocked, append and update
+    if (!unlockedLevels.contains(nextSubLevel['id'])) {
+      unlockedLevels.add(nextSubLevel['id']);
+  
+      await supabase
+          .from('users_meta')
+          .update({'unlocked_levels': unlockedLevels})
+          .eq('user_id', userId);
+  
+      // Also mark the sub-level as unlocked in user_levels table
+      await supabase
+          .from('user_levels')
+          .upsert({
+            'user_id': userId,
+            'sub_level_id': nextSubLevel['id'],
+            'is_unlocked': true,
+          }, onConflict: ['user_id', 'sub_level_id']);
+    }
+  }
+
   /// Mark sub-level as completed & unlock next
   Future<void> completeSubLevel(int subLevelId) async {
     try {
