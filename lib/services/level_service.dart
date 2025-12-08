@@ -7,28 +7,36 @@ class LevelService {
   /// Load all levels with a boolean 'is_unlocked' from user_levels table
   Future<List<Map<String, dynamic>>> loadLevels() async {
     final user = supabase.auth.currentUser;
-    if (user == null) return [];
-
-    // Fetch all levels
-    final levelsRes = await supabase.from('levels').select().order('id', ascending: true);
-    final levels = (levelsRes as List<dynamic>).cast<Map<String, dynamic>>();
-
-    // Fetch all unlocked levels for this user
-    final userLevelsRes = await supabase
-        .from('user_levels')
-        .select('level_id')
-        .eq('user_id', user.id);
-    final unlockedLevelIds = (userLevelsRes as List<dynamic>)
-        .map((e) => e['level_id'] as int)
-        .toSet();
-
-    return levels.map((lvl) {
-      final isUnlocked = lvl['is_default'] == true || unlockedLevelIds.contains(lvl['id']);
-      return {
-        ...lvl,
-        'is_unlocked': isUnlocked,
-      };
-    }).toList();
+    if (user == null) {
+      print("No user logged in!");
+      return []; // <-- This is why loading might hang
+    }
+  
+    try {
+      // Fetch all levels
+      final levelsRes = await supabase.from('levels').select().order('id', ascending: true);
+      final levels = (levelsRes as List<dynamic>).cast<Map<String, dynamic>>();
+  
+      // Fetch user's unlocked levels
+      final userLevelsRes = await supabase
+          .from('user_levels')
+          .select('level_id')
+          .eq('user_id', user.id);
+      final unlockedLevelIds = (userLevelsRes as List<dynamic>)
+          .map((e) => e['level_id'] as int)
+          .toSet();
+  
+      return levels.map((lvl) {
+        final isUnlocked = lvl['is_default'] == true || unlockedLevelIds.contains(lvl['id']);
+        return {
+          ...lvl,
+          'is_unlocked': isUnlocked,
+        };
+      }).toList();
+    } catch (e) {
+      print("Error loading levels: $e");
+      return [];
+    }
   }
 
   /// Load sub-levels for a specific level with user's unlocked/completed status
