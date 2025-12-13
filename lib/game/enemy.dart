@@ -25,15 +25,13 @@ class Enemy {
   double observeTargetY = 0.0;
   final Random _rand = Random();
 
-  // --- NEW: retraction fields ---
   bool isRetracting = false;
   double retractRemaining = 0.0;
-  double retractSpeed = 150.0; // pixels per second
+  double retractSpeed = 150.0;
   double retractDirX = 0.0;
   double retractDirY = 0.0;
 
-  //for drone and other shooter cunts
-  double shootCooldown = 0.0; // tracks when the drone can shoot again
+  double shootCooldown = 0.0;
   List<Projectile> activeProjectiles = [];
 
 
@@ -50,7 +48,6 @@ class Enemy {
     required this.speed,
     required this.behavior,
   }) : currentHealth = currentHealth ?? maxHealth {
-    // initial small random drift
     vx = (_rand.nextDouble() * 2 - 1) * (speed * 0.1);
     vy = (_rand.nextDouble() * 2 - 1) * (speed * 0.05);
     observeTargetX = x;
@@ -92,7 +89,6 @@ class Enemy {
     );
   }
 
-  /// Call to start smooth retraction
   void startRetract(double dx, double dy, double distance) {
     isRetracting = true;
     retractRemaining = distance;
@@ -108,7 +104,6 @@ class Enemy {
     stateTimer = 0;
   }
   void update(Character character, double dt) {
-    // --- handle smooth retraction first ---
     if (isRetracting) {
       final move = min(retractSpeed * dt, retractRemaining);
       x += retractDirX * move;
@@ -124,7 +119,6 @@ class Enemy {
   
     stateTimer += dt;
   
-    // Read behavior from JSON
     final type = behavior['type'] ?? 'hunter';
     final descendSpeed = (behavior['descend_speed'] ?? 60.0).toDouble();
     final observeHeight = (behavior['observe_height'] ?? 180.0).toDouble();
@@ -133,7 +127,6 @@ class Enemy {
     final detectDistance = (behavior['detect_distance'] ?? 300.0).toDouble();
     final stopDistance = (behavior['stop_distance'] ?? 24.0).toDouble();
   
-    // --- State machine ---
     switch (state) {
       case EnemyState.descending:
         vy = descendSpeed;
@@ -149,7 +142,6 @@ class Enemy {
         break;
   
       case EnemyState.observing:
-        // movement towards observeTarget
         final dx = observeTargetX - x;
         final dy = observeTargetY - y;
         final dist = sqrt(dx * dx + dy * dy);
@@ -163,7 +155,6 @@ class Enemy {
         x += vx * dt;
         y += vy * dt;
   
-        // --- dynamic action based on type ---
         if (type == 'hunter') {
           final pdx = character.x - x;
           final pdy = character.y - y;
@@ -176,7 +167,6 @@ class Enemy {
             stateTimer = 0;
           }
         } else if (type == 'drone') {
-          // shooting logic
           shootCooldown += dt;
           if (behavior['shoot_interval'] != null && shootCooldown >= behavior['shoot_interval']) {
             shootCooldown = 0;
@@ -202,7 +192,6 @@ class Enemy {
               activeProjectiles.add(proj);
             }
           }
-          //drone shit
           final kiteDistance = (behavior['kite_distance'] ?? 260).toDouble();
           final retreatDistance = (behavior['retreat_distance'] ?? 160).toDouble();
           final kiteSpeed = (behavior['kite_speed'] ?? 70).toDouble();
@@ -212,7 +201,6 @@ class Enemy {
           final dy = character.y - y;
           final dist = sqrt(dx * dx + dy * dy);
         
-          // retreat when player too close
           if (dist < retreatDistance) {
             final rx = x - dx;
             final ry = y - dy;
@@ -220,7 +208,6 @@ class Enemy {
             vx = (rx / rdist) * retreatSpeed * 0.8;
             vy = (ry / rdist) * retreatSpeed * 0.8;
           }
-          // maintain distance (kite)
           else if (dist < kiteDistance) {
             final perpX = -dy;
             final perpY = dx;
@@ -229,7 +216,6 @@ class Enemy {
             vx = (perpX / perpLen) * kiteSpeed;
             vy = (perpY / perpLen) * kiteSpeed;
           }
-          // too far → move gently towards player
           else {
             vx = (dx / dist) * kiteSpeed * 0.5;
             vy = (dy / dist) * kiteSpeed * 0.5;
@@ -252,14 +238,12 @@ class Enemy {
           x += vx * dt;
           y += vy * dt;
   
-          // collide with character
           if ((x < character.x + character.width &&
               x + width > character.x &&
               y < character.y + character.height &&
               y + height > character.y)) {
             character.takeDamage(damage);
   
-            // retract a bit
             final dx = x - character.x;
             final dy = y - character.y;
             startRetract(dx, dy, 50);
@@ -271,7 +255,6 @@ class Enemy {
             _pickObserveTargetNear(character, behavior['observe_offset']?.toDouble() ?? 100);
           }
         } else {
-          // Drone ignores rushing
           state = EnemyState.observing;
           stateTimer = 0;
         }
@@ -286,12 +269,10 @@ class Enemy {
         break;
     }
   
-    // --- Update projectiles ---
     for (int i = activeProjectiles.length - 1; i >= 0; i--) {
       final p = activeProjectiles[i];
       p.update(dt);
   
-      // check collision with character
       if (p.x >= character.x &&
           p.x <= character.x + character.width &&
           p.y >= character.y &&
@@ -301,7 +282,6 @@ class Enemy {
         continue;
       }
   
-      // remove if offscreen
       if (p.x < 0 || p.x > 1920 || p.y < 0 || p.y > 1080) {
         activeProjectiles.removeAt(i);
       }
