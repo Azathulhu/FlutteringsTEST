@@ -31,14 +31,12 @@ class _EngineWidgetState extends State<EngineWidget>
   void initState() {
     super.initState();
 
-    // Initialize world
     world = World(
       screenWidth: widget.screenWidth,
       screenHeight: widget.screenHeight,
       character: widget.character,
     );
 
-    // Start animation loop
     controller = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: 16),
@@ -49,10 +47,8 @@ class _EngineWidgetState extends State<EngineWidget>
       });
     controller.repeat();
 
-    // Listen to accelerometer
     _accelSub = accelerometerEvents.listen((AccelerometerEvent event) {
       setState(() {
-        // Tilt left/right = x-axis, invert to match screen
         tiltX = -event.x;
       });
     });
