@@ -3,7 +3,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class CharacterService {
   final supabase = Supabase.instance.client;
 
-  // Get list of characters + unlock status
   Future<List<Map<String, dynamic>>> loadCharacters() async {
     final user = supabase.auth.currentUser;
     if (user == null) return [];
@@ -25,7 +24,6 @@ class CharacterService {
     }).toList();
   }
 
-  // Select a character
   Future<void> selectCharacter(int characterId) async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
@@ -36,7 +34,6 @@ class CharacterService {
         .eq('user_id', user.id);
   }
 
-  // Unlock a character
   Future<void> unlockCharacter(int characterId) async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
