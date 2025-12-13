@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/character_service.dart';
-import 'level_selection_page.dart'; // make sure this import points to your level selection page
+import 'level_selection_page.dart';
 
 class CharacterSelectionPage extends StatefulWidget {
   @override
@@ -109,7 +109,6 @@ class _CharacterSelectionPageState extends State<CharacterSelectionPage> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text("Character selected!")),
                     );
-                    // Navigate to Level Selection Page
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => LevelSelectionPage()),
