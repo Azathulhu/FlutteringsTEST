@@ -41,8 +41,6 @@ class _SignInPageState extends State<SignInPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text("Sign In", style: TextStyle(fontSize: 32)),
-            //TextField(controller: email, decoration: InputDecoration(labelText: "Email")),
-            //TextField(controller: password, decoration: InputDecoration(labelText: "Password"), obscureText: true),
             AuthTextField(
               controller: email,
               label: "Email",
