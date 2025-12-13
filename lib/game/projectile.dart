@@ -1,4 +1,3 @@
-// lib/game/projectile.dart
 import 'package:flutter/material.dart';
 
 class Projectile {
