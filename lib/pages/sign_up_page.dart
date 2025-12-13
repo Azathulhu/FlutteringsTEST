@@ -46,9 +46,6 @@ class _SignUpPageState extends State<SignUpPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text("Sign Up", style: TextStyle(fontSize: 32)),
-            //TextField(controller: username, decoration: InputDecoration(labelText: "Username")),
-            //TextField(controller: email, decoration: InputDecoration(labelText: "Email")),
-            //TextField(controller: password, decoration: InputDecoration(labelText: "Password"), obscureText: true),
             AuthTextField(
               controller: username,
               label: "Username",
